@@ -223,6 +223,7 @@
   let bullets = {};
   let gameStarted = false;
   let lastPlayerSync = 0;
+  let lastBulletSync = 0;
   let localPlayer = null;
   let lastShot = 0;
   let maxPlayersSelected = 4;
@@ -516,9 +517,18 @@
     await update(playerRef(), data);
   }
 
+  function getCamera(me) {
+    let camX = me.x - canvas.width / 2;
+    let camY = me.y - canvas.height / 2;
+
+    camX = Math.max(0, Math.min(MAP_W - canvas.width, camX));
+    camY = Math.max(0, Math.min(MAP_H - canvas.height, camY));
+
+    return { camX, camY };
+  }
+
   function worldMouse(me) {
-    const camX = me.x - canvas.width / 2;
-    const camY = me.y - canvas.height / 2;
+    const { camX, camY } = getCamera(me);
     return {
       x: mouse.x + camX,
       y: mouse.y + camY
@@ -527,23 +537,23 @@
 
   async function shoot(me) {
     const now = performance.now();
-    if (now - lastShot < 450) return;
+    if (now - lastShot < 500) return;
     lastShot = now;
 
-    const wm = worldMouse(localPlayer);
-    const angle = Math.atan2(wm.y - localPlayer.y, wm.x - localPlayer.x);
+    const wm = worldMouse(me);
+    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
     const id = crypto.randomUUID();
 
-    await set(bulletRef(id), {
+    set(bulletRef(id), {
       id,
       owner: playerId,
-      x: me.x + Math.cos(angle) * 34,
-      y: me.y + Math.sin(angle) * 34,
-      vx: Math.cos(angle) * 16,
-      vy: Math.sin(angle) * 16,
+      x: me.x + Math.cos(angle) * 38,
+      y: me.y + Math.sin(angle) * 38,
+      vx: Math.cos(angle) * 18,
+      vy: Math.sin(angle) * 18,
       created: Date.now(),
       damage: 25
-    });
+    }).catch(console.error);
   }
 
   function updateGame() {
@@ -588,7 +598,11 @@
 
     if (mouse.down) shoot({ ...me, x: nx, y: ny, angle });
 
-    if (isHost) hostUpdateBullets();
+    const bulletNow = performance.now();
+    if (isHost && bulletNow - lastBulletSync > 45) {
+      lastBulletSync = bulletNow;
+      hostUpdateBullets();
+    }
   }
 
   async function hostUpdateBullets() {
@@ -743,10 +757,9 @@
     let camY = 0;
 
     if (me) {
-      camX = me.x - canvas.width / 2;
-      camY = me.y - canvas.height / 2;
-      camX = Math.max(0, Math.min(MAP_W - canvas.width, camX));
-      camY = Math.max(0, Math.min(MAP_H - canvas.height, camY));
+      const cam = getCamera(me);
+      camX = cam.camX;
+      camY = cam.camY;
     }
 
     drawMap(camX, camY);
