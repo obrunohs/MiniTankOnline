@@ -17,6 +17,7 @@
   canvas {
     display: block;
     background: #293626;
+    cursor: none;
   }
 
   .screen {
@@ -222,6 +223,7 @@
   let bullets = {};
   let gameStarted = false;
   let lastPlayerSync = 0;
+  let localPlayer = null;
   let lastShot = 0;
   let maxPlayersSelected = 4;
 
@@ -325,8 +327,15 @@
 
       const snap = await get(roomRef());
       if (snap.exists()) {
-        showMenuError("Essa sala já existe. Use outro nome ou entre nela.");
-        return;
+        const oldRoom = snap.val();
+        const oldPlayers = oldRoom.players ? Object.keys(oldRoom.players).length : 0;
+
+        if (oldPlayers === 0) {
+          await remove(roomRef());
+        } else {
+          showMenuError("Essa sala já existe. Use outro nome ou entre nela.");
+          return;
+        }
       }
 
       isHost = true;
@@ -487,11 +496,19 @@
 
   async function leaveRoom() {
     await remove(playerRef());
+
+    const snap = await get(ref(db, `rooms/${roomName}/players`));
+    const remaining = snap.exists() ? Object.keys(snap.val()).length : 0;
+
+    if (remaining === 0) {
+      await remove(roomRef());
+    }
+
     location.reload();
   }
 
   function getMe() {
-    return players[playerId];
+    return localPlayer || players[playerId];
   }
 
   async function updateMe(data) {
@@ -513,8 +530,8 @@
     if (now - lastShot < 450) return;
     lastShot = now;
 
-    const wm = worldMouse(me);
-    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
+    const wm = worldMouse(localPlayer);
+    const angle = Math.atan2(wm.y - localPlayer.y, wm.x - localPlayer.x);
     const id = crypto.randomUUID();
 
     await set(bulletRef(id), {
@@ -533,8 +550,10 @@
     const me = getMe();
     if (!gameStarted || !me || !me.alive) return;
 
-    let nx = me.x;
-    let ny = me.y;
+    if (!localPlayer) localPlayer = { ...me };
+
+    let nx = localPlayer.x;
+    let ny = localPlayer.y;
     const speed = 4;
 
     if (keys["w"]) ny -= speed;
@@ -548,6 +567,17 @@
     const wm = worldMouse(me);
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
 
+    localPlayer.x = nx;
+    localPlayer.y = ny;
+    localPlayer.angle = angle;
+
+    players[playerId] = {
+      ...players[playerId],
+      x: nx,
+      y: ny,
+      angle
+    };
+
     hudHp.textContent = me.hp;
 
     const now = performance.now();
@@ -556,7 +586,7 @@
       updateMe({ x: nx, y: ny, angle });
     }
 
-    if (mouse.down) shoot(me);
+    if (mouse.down) shoot({ ...me, x: nx, y: ny, angle });
 
     if (isHost) hostUpdateBullets();
   }
@@ -692,6 +722,19 @@
     ctx.fill();
   }
 
+  function drawCrosshair() {
+    ctx.save();
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x - 10, mouse.y - 10);
+    ctx.lineTo(mouse.x + 10, mouse.y + 10);
+    ctx.moveTo(mouse.x + 10, mouse.y - 10);
+    ctx.lineTo(mouse.x - 10, mouse.y + 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -710,6 +753,8 @@
 
     for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
     for (const p of Object.values(players)) drawTank(p, camX, camY);
+
+    drawCrosshair();
 
     requestAnimationFrame(render);
   }
