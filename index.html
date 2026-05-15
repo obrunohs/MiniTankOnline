@@ -193,36 +193,6 @@
     flex-shrink: 0;
   }
 
-  .lobby-map-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 10px;
-    margin: 10px 0 12px;
-  }
-
-  .lobby-map-title {
-    width: 80px;
-    font-weight: bold;
-    color: #9cff9c;
-    text-align: center;
-    font-size: 14px;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .lobby-map-preview {
-    width: 82px;
-    height: 82px;
-    border: 2px solid #2eff2e;
-    border-radius: 10px;
-    box-shadow: 0 0 12px rgba(46,255,46,0.25);
-    flex-shrink: 0;
-  }
-
   #hud {
     position: fixed;
     top: 10px;
@@ -255,12 +225,13 @@
 <div id="menu" class="screen">
   <div class="panel">
     <h1>Mini Tank Online</h1>
+
     <input id="nicknameInput" placeholder="Seu nickname" maxlength="14" />
     <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
     <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
 
     <div class="map-selector">
-      <div id="mapName" class="map-name">Destruição de paredes</div>
+      <div id="mapName" class="map-name">Destruir</div>
       <div class="map-row">
         <button class="arrow-btn" onclick="changeMap(-1)">&lt;</button>
         <div id="mapPreview" class="map-preview map-destruicao"></div>
@@ -270,18 +241,14 @@
 
     <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
     <div class="player-count-box">
-    <h2 style="word-break:break-word; font-size:22px;">Sala: <span id="lobbyRoomName"></span></h2>
-    <div class="lobby-map-card">
-      <div id="lobbyMapTitle" class="lobby-map-title">MAPA</div>
-      <div id="lobbyMapPreview" class="lobby-map-preview map-destruicao"></div>
-    </div>
-    <div id="lobbyPlayers"></div>n class="count-btn" onclick="selectMaxPlayers(2)">2</button>
-      <button class="count-btn" onclick="selectMaxPlayers(3)">3</button>
-      <button class="count-btn active" onclick="selectMaxPlayers(4)">4</button>
+      <button type="button" class="count-btn" onclick="selectMaxPlayers(1)">1</button>
+      <button type="button" class="count-btn" onclick="selectMaxPlayers(2)">2</button>
+      <button type="button" class="count-btn" onclick="selectMaxPlayers(3)">3</button>
+      <button type="button" class="count-btn active" onclick="selectMaxPlayers(4)">4</button>
     </div>
 
-    <button onclick="createRoom()">Criar sala</button>
-    <button class="secondary" onclick="joinRoom()">Entrar na sala</button>
+    <button type="button" onclick="createRoom()">Criar sala</button>
+    <button type="button" class="secondary" onclick="joinRoom()">Entrar na sala</button>
     <p class="small">Até 4 jogadores por sala. A partida só inicia com 2 ou mais.</p>
   </div>
 </div>
@@ -289,13 +256,18 @@
 <div id="lobby" class="screen hide">
   <div class="panel">
     <h2 style="word-break:break-word; font-size:22px;">Sala: <span id="lobbyRoomName"></span></h2>
+
     <div class="lobby-map-card">
-      <div id="lobbyMapTitle" class="lobby-map-title">MAPA</div>
+      <div>
+        <div class="small">Mapa escolhido</div>
+        <div id="lobbyMapTitle" class="lobby-map-title">MAPA</div>
+      </div>
       <div id="lobbyMapPreview" class="lobby-map-preview map-destruicao"></div>
     </div>
+
     <div id="lobbyPlayers"></div>
-    <button id="startBtn" onclick="startGame()">Iniciar partida</button>
-    <button class="danger" onclick="leaveRoom()">Sair da sala</button>
+    <button id="startBtn" type="button" onclick="startGame()">Iniciar partida</button>
+    <button type="button" class="danger" onclick="leaveRoom()">Sair da sala</button>
     <p id="lobbyMsg" class="small"></p>
   </div>
 </div>
@@ -353,12 +325,22 @@
   const hudRoom = document.getElementById("hudRoom");
   const hudHp = document.getElementById("hudHp");
 
-  const canvas { name: "Destruir", fullName: "Destruição de paredes", type: "destruicao", css: "map-destruicao" },
-    { name: "Árvores", fullName: "Árvores", type: "arvores", css: "map-arvores" },
-    { name: "Água", fullName: "Água/lama", type: "agua", css: "map-agua" },
-    { name: "Mistura", fullName: "Mapas diferentes", type: "diferentes", css: "map-diferentes" },
-    { name: "Móveis", fullName: "Obstáculos móveis", type: "moveis", css: "map-moveis" },
-    { name: "Noturno", fullName: "Arena noturna", type: "noturna", css: "map-noturna" }  localStorage.setItem("tankPlayerId", playerId);
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+
+  window.addEventListener("resize", () => {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+  });
+
+  // =========================
+  // ESTADO DO JOGO
+  // =========================
+  let playerId = localStorage.getItem("tankPlayerId") || crypto.randomUUID();
+  localStorage.setItem("tankPlayerId", playerId);
 
   let nickname = "";
   let roomName = "";
@@ -479,12 +461,16 @@
   }
 
   function bulletRef(id) {
-    return ref(db, `rnction spawnPosition(index) {
+    return ref(db, `rooms/${roomName}/bullets/${id}`);
+  }
+
+  function spawnPosition(index) {
     const spawns = [
       { x: 180, y: 180 },
       { x: MAP_W - 180, y: 180 },
       { x: 180, y: MAP_H - 180 },
-   ;
+      { x: MAP_W - 180, y: MAP_H - 180 }
+    ];
     return spawns[index % spawns.length];
   }
 
@@ -582,7 +568,14 @@
       hp: 100,
       color: colors[count % colors.length],
       alive: true,
-      re  function openLobby() {
+      ready: true,
+      kills: 0
+    });
+
+    onDisconnect(playerRef()).remove();
+  }
+
+  function openLobby() {
     menu.classList.add("hide");
     lobby.classList.remove("hide");
     lobbyRoomName.textContent = roomName;
@@ -640,7 +633,14 @@
   function renderPlayersBox() {
     const list = Object.values(players);
     playersBox.innerHTML = "<b>Players</b><br>" + list.map(p => `
-      <div style="mRef());
+      <div style="color:${p.color}">${p.nickname}: ${p.hp} HP | ${p.kills || 0} K</div>
+    `).join("");
+  }
+
+  async function startGame() {
+    const snap = await get(ref(db, `rooms/${roomName}/players`));
+    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+    const roomSnap = await get(roomRef());
     const room = roomSnap.val();
     const maxPlayers = room.maxPlayers || 4;
 
