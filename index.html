@@ -483,7 +483,10 @@
         const oldRoom = snap.val();
         const oldPlayers = oldRoom.players ? Object.keys(oldRoom.players).length : 0;
 
-        if (oldPlayers === 0) {
+        // Se a sala estiver vazia OU o host antigo não existir mais, recria.
+        const hostStillExists = oldRoom.players && oldRoom.players[oldRoom.host];
+
+        if (oldPlayers === 0 || !hostStillExists) {
           await remove(roomRef());
         } else {
           showMenuError("Essa sala já existe. Use outro nome ou entre nela.");
@@ -681,11 +684,15 @@
     location.reload();
   }
 
-  window.addEventListener("beforeunload", () => {
-    if (roomName && isHost) {
-      remove(roomRef());
-    } else if (roomName) {
-      remove(playerRef());
+  window.addEventListener("beforeunload", async () => {
+    try {
+      if (roomName && isHost) {
+        await remove(roomRef());
+      } else if (roomName) {
+        await remove(playerRef());
+      }
+    } catch (e) {
+      console.error(e);
     }
   });
 
