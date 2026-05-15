@@ -31,12 +31,12 @@
   }
 
   .panel {
-    width: 720px;
-    max-width: 94vw;
+    width: 1050px;
+    max-width: 96vw;
     background: rgba(0,0,0,0.78);
     border: 2px solid #5cff5c;
     border-radius: 14px;
-    padding: 22px;
+    padding: 18px;
     box-shadow: 0 0 25px rgba(92,255,92,0.35);
   }
 
@@ -53,13 +53,41 @@
     box-shadow: 0 0 25px rgba(92,255,92,0.35);
   }
 
+  .top-user-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
   .logged-user {
+    flex: 1;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.15);
     padding: 10px;
     border-radius: 10px;
     text-align: center;
-    margin-bottom: 10px;
+  }
+
+  .logout-btn {
+    width: 130px;
+    margin: 0;
+    background: #ff5555;
+    color: white;
+  }
+
+  .menu-layout {
+    display: grid;
+    grid-template-columns: 1fr 230px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .menu-section {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 12px;
   }
 
   .link-btn {
@@ -228,7 +256,7 @@
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 12px;
     padding: 10px;
-    max-height: 190px;
+    max-height: 260px;
     overflow-y: auto;
   }
 
@@ -294,6 +322,15 @@
 
   .hide { display: none !important; }
   .small { font-size: 13px; color: #ccc; text-align: center; }
+
+  @media (max-width: 850px) {
+    body { overflow: auto; }
+    .screen { align-items: flex-start; padding: 12px 0; overflow-y: auto; }
+    .menu-layout { grid-template-columns: 1fr; }
+    .panel { width: 94vw; }
+    .top-user-bar { flex-direction: column; }
+    .logout-btn { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -337,34 +374,46 @@
   <div class="panel">
     <h1>Mini Tank Online</h1>
 
-    <div class="logged-user">Logado como: <b id="loggedNickname">Player</b></div>
-    <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
-    <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
+    <div class="top-user-bar">
+      <div class="logged-user">Logado como: <b id="loggedNickname">Player</b></div>
+      <button type="button" class="logout-btn" onclick="logoutAccount()">Deslogar</button>
+    </div>
 
-    <div class="map-selector">
-      <div id="mapName" class="map-name">Destruir</div>
-      <div class="map-row">
-        <button class="arrow-btn" onclick="changeMap(-1)">&lt;</button>
-        <div id="mapPreview" class="map-preview map-destruicao"></div>
-        <button class="arrow-btn" onclick="changeMap(1)">&gt;</button>
+    <div class="menu-layout">
+      <div class="menu-section">
+        <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
+        <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
+
+        <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
+        <div class="player-count-box">
+          <button type="button" class="count-btn" onclick="selectMaxPlayers(1)">1</button>
+          <button type="button" class="count-btn" onclick="selectMaxPlayers(2)">2</button>
+          <button type="button" class="count-btn" onclick="selectMaxPlayers(3)">3</button>
+          <button type="button" class="count-btn active" onclick="selectMaxPlayers(4)">4</button>
+        </div>
+
+        <button type="button" onclick="createRoom()">Criar sala</button>
+        <button type="button" class="secondary" onclick="joinRoom()">Entrar na sala</button>
       </div>
-    </div>
 
-    <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
-    <div class="player-count-box">
-      <button type="button" class="count-btn" onclick="selectMaxPlayers(1)">1</button>
-      <button type="button" class="count-btn" onclick="selectMaxPlayers(2)">2</button>
-      <button type="button" class="count-btn" onclick="selectMaxPlayers(3)">3</button>
-      <button type="button" class="count-btn active" onclick="selectMaxPlayers(4)">4</button>
-    </div>
+      <div class="menu-section">
+        <div class="map-selector">
+          <div id="mapName" class="map-name">Destruir</div>
+          <div class="map-row">
+            <button class="arrow-btn" onclick="changeMap(-1)">&lt;</button>
+            <div id="mapPreview" class="map-preview map-destruicao"></div>
+            <button class="arrow-btn" onclick="changeMap(1)">&gt;</button>
+          </div>
+        </div>
+      </div>
 
-    <button type="button" onclick="createRoom()">Criar sala</button>
-    <button type="button" class="secondary" onclick="joinRoom()">Entrar na sala</button>
-
-    <div class="public-rooms-box">
-      <h3>Salas online</h3>
-      <div id="publicRoomsList" class="public-rooms-list">
-        <p class="small">Carregando salas...</p>
+      <div class="menu-section">
+        <div class="public-rooms-box">
+          <h3>Salas online</h3>
+          <div id="publicRoomsList" class="public-rooms-list">
+            <p class="small">Carregando salas...</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -409,7 +458,8 @@
     sendEmailVerification,
     sendPasswordResetEmail,
     updateProfile,
-    onAuthStateChanged
+    onAuthStateChanged,
+    signOut
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getDatabase,
@@ -666,6 +716,28 @@
       if (user && !user.emailVerified) {
         setAuthMsg("loginMsg", "Confirme seu email antes de jogar.");
       }
+    }
+  });
+
+  async function logoutAccount() {
+    try {
+      if (roomName) {
+        if (isHost) await remove(roomRef());
+        else await remove(playerRef());
+      }
+      await signOut(auth);
+      location.reload();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let manualReload = false;
+
+  window.addEventListener("keydown", e => {
+    if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
+      manualReload = true;
+      sessionStorage.setItem("miniTankReload", "1");
     }
   });
 
@@ -1011,16 +1083,20 @@
     location.reload();
   }
 
-  window.addEventListener("beforeunload", async () => {
-    try {
-      if (roomName && isHost) {
-        await remove(roomRef());
-      } else if (roomName) {
-        await remove(playerRef());
-      }
-    } catch (e) {
-      console.error(e);
+  window.addEventListener("beforeunload", () => {
+    const isReload = manualReload || sessionStorage.getItem("miniTankReload") === "1";
+
+    if (!isReload && auth.currentUser) {
+      signOut(auth).catch(console.error);
     }
+
+    if (roomName && isHost) {
+      remove(roomRef()).catch(console.error);
+    } else if (roomName) {
+      remove(playerRef()).catch(console.error);
+    }
+
+    setTimeout(() => sessionStorage.removeItem("miniTankReload"), 1000);
   });
 
   function getMe() {
@@ -1377,6 +1453,7 @@
   // Começa sempre na primeira tela: login.
   showLogin();
 
+  window.logoutAccount = logoutAccount;
   window.showLogin = showLogin;
   window.showRegister = showRegister;
   window.showRecover = showRecover;
