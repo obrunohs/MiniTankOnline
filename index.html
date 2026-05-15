@@ -193,6 +193,53 @@
     flex-shrink: 0;
   }
 
+  .public-rooms-box {
+    margin-top: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 190px;
+    overflow-y: auto;
+  }
+
+  .public-rooms-box h3 {
+    margin: 0 0 8px;
+    text-align: center;
+    font-size: 16px;
+    color: #9cff9c;
+  }
+
+  .room-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 9px;
+    padding: 8px;
+    margin-bottom: 7px;
+  }
+
+  .room-card-title {
+    font-weight: bold;
+    color: white;
+    word-break: break-word;
+  }
+
+  .room-card-info {
+    font-size: 12px;
+    color: #ccc;
+  }
+
+  .room-card button {
+    width: auto;
+    padding: 8px 10px;
+    margin: 0;
+    font-size: 12px;
+  }
+
   #hud {
     position: fixed;
     top: 10px;
@@ -249,6 +296,14 @@
 
     <button type="button" onclick="createRoom()">Criar sala</button>
     <button type="button" class="secondary" onclick="joinRoom()">Entrar na sala</button>
+
+    <div class="public-rooms-box">
+      <h3>Salas online</h3>
+      <div id="publicRoomsList" class="public-rooms-list">
+        <p class="small">Carregando salas...</p>
+      </div>
+    </div>
+
     <p class="small">Até 4 jogadores por sala. A partida só inicia com 2 ou mais.</p>
   </div>
 </div>
@@ -356,6 +411,7 @@
   let maxPlayersSelected = 4;
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
+  let publicRoomsStarted = false;
 
   const mapOptions = [
     { name: "Destruir", fullName: "Destruição de paredes", type: "destruicao", css: "map-destruicao" },
@@ -576,6 +632,53 @@
     });
 
     onDisconnect(playerRef()).remove();
+  }
+
+  function startPublicRoomsList() {
+    if (publicRoomsStarted) return;
+    publicRoomsStarted = true;
+
+    const listEl = document.getElementById("publicRoomsList");
+
+    onValue(ref(db, "rooms"), snap => {
+      if (!listEl) return;
+
+      if (!snap.exists()) {
+        listEl.innerHTML = `<p class="small">Nenhuma sala online.</p>`;
+        return;
+      }
+
+      const rooms = snap.val();
+      const cards = [];
+
+      for (const [name, room] of Object.entries(rooms)) {
+        const playersCount = room.players ? Object.keys(room.players).length : 0;
+        const maxPlayers = room.maxPlayers || 4;
+        const status = room.status || "lobby";
+        const mapName = (room.mapName || "Mapa").slice(0, 8);
+        const hostStillExists = room.players && room.players[room.host];
+
+        if (playersCount <= 0 || !hostStillExists) continue;
+        if (status !== "lobby") continue;
+
+        cards.push(`
+          <div class="room-card">
+            <div>
+              <div class="room-card-title">${name}</div>
+              <div class="room-card-info">${playersCount}/${maxPlayers} players | Mapa: ${mapName}</div>
+            </div>
+            <button type="button" onclick="selectPublicRoom('${name.replace(/'/g, "\'")}')">Selecionar</button>
+          </div>
+        `);
+      }
+
+      listEl.innerHTML = cards.length ? cards.join("") : `<p class="small">Nenhuma sala disponível.</p>`;
+    });
+  }
+
+  function selectPublicRoom(name) {
+    document.getElementById("roomInput").value = name;
+    showMenuError("Sala selecionada. Digite a senha e clique em Entrar na sala.");
   }
 
   function openLobby() {
@@ -1045,6 +1148,9 @@
   setInterval(updateGame, 1000 / 30);
   render();
 
+  startPublicRoomsList();
+
+  window.selectPublicRoom = selectPublicRoom;
   window.changeMap = changeMap;
   window.selectMaxPlayers = selectMaxPlayers;
   window.createRoom = createRoom;
