@@ -85,6 +85,84 @@
     border-color: #9cff9c;
   }
 
+  .map-selector {
+    margin: 12px 0;
+    text-align: center;
+  }
+
+  .map-name {
+    font-weight: bold;
+    margin-bottom: 7px;
+    color: #9cff9c;
+  }
+
+  .map-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .arrow-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    font-size: 25px;
+    line-height: 48px;
+  }
+
+  .map-preview {
+    width: 105px;
+    height: 105px;
+    border: 3px solid #2eff2e;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(46,255,46,0.35);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .map-destruicao {
+    background:
+      linear-gradient(90deg, transparent 44%, #9b5c36 45% 55%, transparent 56%),
+      linear-gradient(0deg, transparent 25%, #9b5c36 26% 36%, transparent 37% 65%, #9b5c36 66% 76%, transparent 77%),
+      #34402e;
+  }
+
+  .map-arvores {
+    background:
+      radial-gradient(circle at 25% 25%, #0b8f25 0 9px, transparent 10px),
+      radial-gradient(circle at 65% 35%, #0a6f20 0 12px, transparent 13px),
+      radial-gradient(circle at 40% 70%, #13a832 0 11px, transparent 12px),
+      radial-gradient(circle at 80% 80%, #0b8f25 0 10px, transparent 11px),
+      #253a22;
+  }
+
+  .map-agua {
+    background:
+      radial-gradient(circle at 30% 35%, #2e9ee8 0 18px, transparent 19px),
+      radial-gradient(circle at 75% 60%, #1c6fb1 0 22px, transparent 23px),
+      linear-gradient(45deg, #5b4a2b, #2f3b24);
+  }
+
+  .map-diferentes {
+    background:
+      linear-gradient(90deg, #264625 0 33%, #5b4a2b 34% 66%, #243b55 67% 100%);
+  }
+
+  .map-moveis {
+    background:
+      linear-gradient(90deg, transparent 30%, #c0c0c0 31% 42%, transparent 43% 60%, #ffcc00 61% 72%, transparent 73%),
+      #263626;
+  }
+
+  .map-noturna {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(0,255,255,0.5), transparent 35%),
+      linear-gradient(45deg, #07101f, #13071f);
+  }
+
   #hud {
     position: fixed;
     top: 10px;
@@ -120,6 +198,15 @@
     <input id="nicknameInput" placeholder="Seu nickname" maxlength="14" />
     <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
     <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
+
+    <div class="map-selector">
+      <div id="mapName" class="map-name">Destruição de paredes</div>
+      <div class="map-row">
+        <button class="arrow-btn" onclick="changeMap(-1)">&lt;</button>
+        <div id="mapPreview" class="map-preview map-destruicao"></div>
+        <button class="arrow-btn" onclick="changeMap(1)">&gt;</button>
+      </div>
+    </div>
 
     <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
     <div class="player-count-box">
@@ -227,6 +314,17 @@
   let localPlayer = null;
   let lastShot = 0;
   let maxPlayersSelected = 4;
+  let selectedMapIndex = 0;
+  let currentMapType = "destruicao";
+
+  const mapOptions = [
+    { name: "Destruição de paredes", type: "destruicao", css: "map-destruicao" },
+    { name: "Árvores", type: "arvores", css: "map-arvores" },
+    { name: "Água/lama", type: "agua", css: "map-agua" },
+    { name: "Mapas diferentes", type: "diferentes", css: "map-diferentes" },
+    { name: "Obstáculos móveis", type: "moveis", css: "map-moveis" },
+    { name: "Arena noturna", type: "noturna", css: "map-noturna" }
+  ];
 
   const MAP_W = 2400;
   const MAP_H = 1600;
@@ -273,6 +371,20 @@
     document.querySelectorAll(".count-btn").forEach(btn => {
       btn.classList.toggle("active", Number(btn.textContent) === n);
     });
+  }
+
+  function changeMap(dir) {
+    selectedMapIndex += dir;
+    if (selectedMapIndex < 0) selectedMapIndex = mapOptions.length - 1;
+    if (selectedMapIndex >= mapOptions.length) selectedMapIndex = 0;
+
+    const map = mapOptions[selectedMapIndex];
+    currentMapType = map.type;
+
+    document.getElementById("mapName").textContent = map.name;
+
+    const preview = document.getElementById("mapPreview");
+    preview.className = `map-preview ${map.css}`;
   }
 
   function getInputs() {
@@ -346,6 +458,8 @@
         host: playerId,
         status: "lobby",
         maxPlayers: maxPlayersSelected,
+        mapType: currentMapType,
+        mapName: mapOptions[selectedMapIndex].name,
         createdAt: serverTimestamp()
       });
 
@@ -436,6 +550,7 @@
       bullets = room.bullets || {};
       gameStarted = room.status === "playing";
       isHost = room.host === playerId;
+      currentMapType = room.mapType || "destruicao";
 
       renderLobby(room);
       renderPlayersBox();
@@ -673,28 +788,110 @@
     }
   }
 
+  function getObstacles() {
+    if (currentMapType === "arvores") {
+      return [
+        { x: 420, y: 300, w: 90, h: 90, type: "tree" },
+        { x: 760, y: 520, w: 100, h: 100, type: "tree" },
+        { x: 1280, y: 350, w: 90, h: 90, type: "tree" },
+        { x: 1720, y: 760, w: 110, h: 110, type: "tree" },
+        { x: 980, y: 1120, w: 120, h: 100, type: "tree" }
+      ];
+    }
+
+    if (currentMapType === "agua") {
+      return [
+        { x: 430, y: 420, w: 360, h: 190, type: "water" },
+        { x: 1250, y: 900, w: 440, h: 230, type: "mud" },
+        { x: 1700, y: 300, w: 260, h: 180, type: "water" }
+      ];
+    }
+
+    if (currentMapType === "diferentes") {
+      return [
+        { x: 350, y: 350, w: 230, h: 90, type: "wall" },
+        { x: 850, y: 720, w: 300, h: 110, type: "mud" },
+        { x: 1500, y: 450, w: 220, h: 160, type: "water" },
+        { x: 1750, y: 1120, w: 130, h: 130, type: "tree" }
+      ];
+    }
+
+    if (currentMapType === "moveis") {
+      const t = Date.now() / 700;
+      return [
+        { x: 500 + Math.sin(t) * 170, y: 430, w: 260, h: 75, type: "moving" },
+        { x: 1200, y: 720 + Math.cos(t) * 150, w: 90, h: 300, type: "moving" },
+        { x: 1650 + Math.sin(t * 1.2) * 140, y: 1050, w: 300, h: 75, type: "moving" }
+      ];
+    }
+
+    if (currentMapType === "noturna") {
+      return [
+        { x: 450, y: 350, w: 260, h: 80, type: "neon" },
+        { x: 1000, y: 650, w: 100, h: 300, type: "neon" },
+        { x: 1650, y: 400, w: 320, h: 90, type: "neon" },
+        { x: 600, y: 1100, w: 420, h: 90, type: "neon" }
+      ];
+    }
+
+    return [
+      { x: 450, y: 350, w: 260, h: 80, type: "breakable" },
+      { x: 1000, y: 650, w: 100, h: 300, type: "breakable" },
+      { x: 1650, y: 400, w: 320, h: 90, type: "breakable" },
+      { x: 600, y: 1100, w: 420, h: 90, type: "breakable" },
+      { x: 1500, y: 1150, w: 120, h: 260, type: "breakable" }
+    ];
+  }
+
   function drawMap(camX, camY) {
-    ctx.fillStyle = "#293626";
+    const bg = currentMapType === "noturna" ? "#07101f" : currentMapType === "agua" ? "#2d3425" : "#293626";
+    ctx.fillStyle = bg;
     ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
 
     drawGrid(camX, camY);
 
-    ctx.strokeStyle = "#a6ff6b";
+    if (currentMapType === "noturna") {
+      ctx.fillStyle = "rgba(0,255,255,0.07)";
+      ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
+    }
+
+    ctx.strokeStyle = currentMapType === "noturna" ? "#00ffff" : "#a6ff6b";
     ctx.lineWidth = 8;
     ctx.strokeRect(-camX, -camY, MAP_W, MAP_H);
 
-    // obstáculos simples
-    const obstacles = [
-      { x: 450, y: 350, w: 260, h: 80 },
-      { x: 1000, y: 650, w: 100, h: 300 },
-      { x: 1650, y: 400, w: 320, h: 90 },
-      { x: 600, y: 1100, w: 420, h: 90 },
-      { x: 1500, y: 1150, w: 120, h: 260 }
-    ];
-
-    ctx.fillStyle = "#56615a";
-    for (const o of obstacles) {
-      ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+    for (const o of getObstacles()) {
+      if (o.type === "tree") {
+        ctx.fillStyle = "#6b3f1d";
+        ctx.fillRect(o.x + o.w / 2 - 8 - camX, o.y + o.h / 2 - 8 - camY, 16, 20);
+        ctx.fillStyle = "#0b8f25";
+        ctx.beginPath();
+        ctx.arc(o.x + o.w / 2 - camX, o.y + o.h / 2 - camY, Math.max(o.w, o.h) / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (o.type === "water") {
+        ctx.fillStyle = "#1f8fd6";
+        ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+      } else if (o.type === "mud") {
+        ctx.fillStyle = "#5b4a2b";
+        ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+      } else if (o.type === "moving") {
+        ctx.fillStyle = "#c0c0c0";
+        ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+        ctx.strokeStyle = "#ffcc00";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(o.x - camX, o.y - camY, o.w, o.h);
+      } else if (o.type === "neon") {
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+        ctx.strokeStyle = "#00ffff";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(o.x - camX, o.y - camY, o.w, o.h);
+      } else {
+        ctx.fillStyle = "#8a5a35";
+        ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+        ctx.strokeStyle = "#5c351e";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(o.x - camX, o.y - camY, o.w, o.h);
+      }
     }
   }
 
@@ -775,6 +972,7 @@
   setInterval(updateGame, 1000 / 30);
   render();
 
+  window.changeMap = changeMap;
   window.selectMaxPlayers = selectMaxPlayers;
   window.createRoom = createRoom;
   window.joinRoom = joinRoom;
