@@ -30,13 +30,35 @@
     z-index: 10;
   }
 
-  .panel {
-    width: 360px;
-    background: rgba(0,0,0,0.78);
+  (92,255,92,0.35);
+  }
+
+  .auth-layout {
+    width: 420px;
+    max-width: 94vw;
+  }
+
+  .auth-card {
+    background: rgba(0,0,0,0.82);
     border: 2px solid #5cff5c;
     border-radius: 14px;
     padding: 22px;
     box-shadow: 0 0 25px rgba(92,255,92,0.35);
+  }
+
+  .logged-user {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .link-btn {
+    background: transparent;
+    color: #9cff9c;
+    text-decoration: underline;
   }
 
   h1, h2 { text-align: center; margin-top: 0; }
@@ -236,10 +258,42 @@
   .room-card button {
     width: auto;
     padding: 8px 10px;
-    margin: 0;
-    font-size: 12px;
-  }
+    margin<div id="authScreen" class="screen">
+  <div class="auth-layout">
+    <div class="auth-card" id="loginBox">
+      <h1>Mini Tank Online</h1>
+      <h2>Entrar</h2>
+      <input id="loginNick" placeholder="Nickname" maxlength="14" />
+      <input id="loginPassword" placeholder="Senha" type="password" />
+      <button type="button" onclick="loginAccount()">Jogar</button>
+      <button type="button" class="secondary" onclick="showRegister()">Cadastro</button>
+      <button type="button" class="link-btn" onclick="showRecover()">Esqueci minha senha</button>
+      <p id="loginMsg" class="small"></p>
+    </div>
 
+    <div class="auth-card hide" id="registerBox">
+      <h1>Cadastro</h1>
+      <input id="registerNick" placeholder="Nickname" maxlength="14" />
+      <input id="registerEmail" placeholder="Email" type="email" />
+      <input id="registerPassword" placeholder="Senha" type="password" />
+      <input id="registerPassword2" placeholder="Repetir senha" type="password" />
+      <p class="small">A senha precisa ter letra maiúscula, letra minúscula, número e caractere especial.</p>
+      <button type="button" onclick="registerAccount()">Cadastrar e enviar email</button>
+      <button type="button" class="secondary" onclick="showLogin()">Voltar para login</button>
+      <p id="registerMsg" class="small"></p>
+    </div>
+
+    <div class="auth-card hide" id="recoverBox">
+      <h1>Recuperar senha</h1>
+      <input id="recoverEmail" placeholder="Seu email" type="email" />
+      <button type="button" onclick="recoverPassword()">Enviar recuperação</button>
+      <button type="button" class="secondary" onclick="showLogin()">Voltar</button>
+      <p id="recoverMsg" class="small"></p>
+    </div>
+  </div>
+</div>
+
+<div id="menu" class="screen hide">
   #hud {
     position: fixed;
     top: 10px;
@@ -269,11 +323,46 @@
 </head>
 <body>
 
-<div id="menu" class="screen">
+<div id="authScreen" class="screen">
+  <div class="auth-layout">
+    <div class="auth-card" id="loginBox">
+      <h1>Mini Tank Online</h1>
+      <h2>Entrar</h2>
+      <input id="loginNick" placeholder="Nickname" maxlength="14" />
+      <input id="loginPassword" placeholder="Senha" type="password" />
+      <button type="button" onclick="loginAccount()">Jogar</button>
+      <button type="button" class="secondary" onclick="showRegister()">Cadastro</button>
+      <button type="button" class="link-btn" onclick="showRecover()">Esqueci minha senha</button>
+      <p id="loginMsg" class="small"></p>
+    </div>
+
+    <div class="auth-card hide" id="registerBox">
+      <h1>Cadastro</h1>
+      <input id="registerNick" placeholder="Nickname" maxlength="14" />
+      <input id="registerEmail" placeholder="Email" type="email" />
+      <input id="registerPassword" placeholder="Senha" type="password" />
+      <input id="registerPassword2" placeholder="Repetir senha" type="password" />
+      <p class="small">Senha: maiúscula, minúscula, número e caractere especial.</p>
+      <button type="button" onclick="registerAccount()">Cadastrar e enviar email</button>
+      <button type="button" class="secondary" onclick="showLogin()">Voltar para login</button>
+      <p id="registerMsg" class="small"></p>
+    </div>
+
+    <div class="auth-card hide" id="recoverBox">
+      <h1>Recuperar senha</h1>
+      <input id="recoverEmail" placeholder="Seu email" type="email" />
+      <button type="button" onclick="recoverPassword()">Enviar recuperação</button>
+      <button type="button" class="secondary" onclick="showLogin()">Voltar</button>
+      <p id="recoverMsg" class="small"></p>
+    </div>
+  </div>
+</div>
+
+<div id="menu" class="screen hide">
   <div class="panel">
     <h1>Mini Tank Online</h1>
 
-    <input id="nicknameInput" placeholder="Seu nickname" maxlength="14" />
+    <div class="logged-user">Logado como: <b id="loggedNickname">Player</b></div>
     <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
     <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
 
@@ -339,6 +428,15 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendEmailVerification,
+    sendPasswordResetEmail,
+    updateProfile,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
     getDatabase,
     ref,
     set,
@@ -365,10 +463,12 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
 
   // =========================
   // ELEMENTOS
   // =========================
+  const authScreen = document.getElementById("authScreen");
   const menu = document.getElementById("menu");
   const lobby = document.getElementById("lobby");
   const lobbyRoomName = document.getElementById("lobbyRoomName");
@@ -398,6 +498,7 @@
   localStorage.setItem("tankPlayerId", playerId);
 
   let nickname = "";
+  let currentUserData = null;
   let roomName = "";
   let roomPassword = "";
   let isHost = false;
@@ -445,6 +546,147 @@
     return name.trim().replace(/[.#$/\[\]]/g, "_");
   }
 
+  function setAuthMsg(id, msg, ok = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.color = ok ? "#9cff9c" : "#ff7070";
+    el.textContent = msg;
+  }
+
+  function showLogin() {
+    document.getElementById("loginBox").classList.remove("hide");
+    document.getElementById("registerBox").classList.add("hide");
+    document.getElementById("recoverBox").classList.add("hide");
+  }
+
+  function showRegister() {
+    document.getElementById("loginBox").classList.add("hide");
+    document.getElementById("registerBox").classList.remove("hide");
+    document.getElementById("recoverBox").classList.add("hide");
+  }
+
+  function showRecover() {
+    document.getElementById("loginBox").classList.add("hide");
+    document.getElementById("registerBox").classList.add("hide");
+    document.getElementById("recoverBox").classList.remove("hide");
+  }
+
+  function nickKey(nick) {
+    return nick.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  }
+
+  function validPassword(pass) {
+    return /[a-z]/.test(pass) && /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
+  }
+
+  async function registerAccount() {
+    const nick = document.getElementById("registerNick").value.trim();
+    const email = document.getElementById("registerEmail").value.trim();
+    const pass = document.getElementById("registerPassword").value;
+    const pass2 = document.getElementById("registerPassword2").value;
+    const key = nickKey(nick);
+
+    if (!nick || !email || !pass || !pass2) {
+      setAuthMsg("registerMsg", "Preencha nickname, email e senha.");
+      return;
+    }
+
+    if (!key) {
+      setAuthMsg("registerMsg", "Nickname inválido.");
+      return;
+    }
+
+    if (pass !== pass2) {
+      setAuthMsg("registerMsg", "As senhas não são iguais.");
+      return;
+    }
+
+    if (!validPassword(pass)) {
+      setAuthMsg("registerMsg", "Senha fraca. Use maiúscula, minúscula, número e caractere especial.");
+      return;
+    }
+
+    try {
+      const nickSnap = await get(ref(db, `usersByNick/${key}`));
+      if (nickSnap.exists()) {
+        setAuthMsg("registerMsg", "Esse nickname já está em uso.");
+        return;
+      }
+
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(cred.user, { displayName: nick });
+      await set(ref(db, `usersByNick/${key}`), { email, nick, uid: cred.user.uid });
+      await sendEmailVerification(cred.user);
+      setAuthMsg("registerMsg", "Cadastro criado. Confirme seu email e depois faça login.", true);
+      setTimeout(showLogin, 2500);
+    } catch (e) {
+      setAuthMsg("registerMsg", "Erro no cadastro: " + e.message);
+    }
+  }
+
+  async function loginAccount() {
+    const nick = document.getElementById("loginNick").value.trim();
+    const pass = document.getElementById("loginPassword").value;
+    const key = nickKey(nick);
+
+    if (!nick || !pass) {
+      setAuthMsg("loginMsg", "Digite nickname e senha.");
+      return;
+    }
+
+    try {
+      const snap = await get(ref(db, `usersByNick/${key}`));
+      if (!snap.exists()) {
+        setAuthMsg("loginMsg", "Nickname não encontrado.");
+        return;
+      }
+
+      const data = snap.val();
+      const cred = await signInWithEmailAndPassword(auth, data.email, pass);
+
+      if (!cred.user.emailVerified) {
+        await sendEmailVerification(cred.user);
+        setAuthMsg("loginMsg", "Confirme seu email. Enviamos outro link de confirmação.");
+        return;
+      }
+
+      nickname = cred.user.displayName || data.nick || nick;
+    } catch (e) {
+      setAuthMsg("loginMsg", "Erro ao entrar: nickname ou senha incorretos.");
+    }
+  }
+
+  async function recoverPassword() {
+    const email = document.getElementById("recoverEmail").value.trim();
+    if (!email) {
+      setAuthMsg("recoverMsg", "Digite seu email.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setAuthMsg("recoverMsg", "Link de troca de senha enviado para seu email.", true);
+    } catch (e) {
+      setAuthMsg("recoverMsg", "Erro ao recuperar senha: " + e.message);
+    }
+  }
+
+  onAuthStateChanged(auth, user => {
+    currentUserData = user;
+    if (user && user.emailVerified) {
+      nickname = user.displayName || nickname || "Player";
+      document.getElementById("loggedNickname").textContent = nickname;
+      authScreen.classList.add("hide");
+      menu.classList.remove("hide");
+    } else {
+      menu.classList.add("hide");
+      authScreen.classList.remove("hide");
+      if (user && !user.emailVerified) {
+        setAuthMsg("loginMsg", "Confirme seu email antes de jogar.");
+      }
+    }
+  });
+
   function showMenuError(msg) {
     let old = document.getElementById("menuError");
     if (!old) {
@@ -486,7 +728,7 @@
   function getInputs() {
     clearMenuError();
 
-    nickname = document.getElementById("nicknameInput").value.trim() || "Player";
+    nickname = currentUserData?.displayName || nickname || "Player";
     roomName = safeRoomName(document.getElementById("roomInput").value || "");
     roomPassword = document.getElementById("passwordInput").value.trim();
 
@@ -1150,6 +1392,12 @@
 
   startPublicRoomsList();
 
+  window.showLogin = showLogin;
+  window.showRegister = showRegister;
+  window.showRecover = showRecover;
+  window.registerAccount = registerAccount;
+  window.loginAccount = loginAccount;
+  window.recoverPassword = recoverPassword;
   window.selectPublicRoom = selectPublicRoom;
   window.changeMap = changeMap;
   window.selectMaxPlayers = selectMaxPlayers;
