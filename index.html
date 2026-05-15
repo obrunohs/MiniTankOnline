@@ -220,6 +220,7 @@
   let isHost = false;
   let players = {};
   let bullets = {};
+  let localBullets = {};
   let gameStarted = false;
   let lastShot = 0;
   let maxPlayersSelected = 4;
@@ -516,16 +517,19 @@
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
     const id = crypto.randomUUID();
 
-    await set(bulletRef(id), {
+    const bulletData = {
       id,
       owner: playerId,
       x: me.x + Math.cos(angle) * 34,
       y: me.y + Math.sin(angle) * 34,
-      vx: Math.cos(angle) * 12,
-      vy: Math.sin(angle) * 12,
+      vx: Math.cos(angle) * 14,
+      vy: Math.sin(angle) * 14,
       created: Date.now(),
       damage: 25
-    });
+    };
+
+    localBullets[id] = { ...bulletData };
+    await set(bulletRef(id), bulletData);
   }
 
   function updateGame() {
@@ -553,30 +557,51 @@
 
     if (mouse.down) shoot(me);
 
-    if (isHost) hostUpdateBullets();
+    updateLocalBullets();
+
+    if (isHost) hostCheckBulletHits();
   }
 
-  async function hostUpdateBullets() {
+  function updateLocalBullets() {
     const now = Date.now();
 
     for (const [id, b] of Object.entries(bullets)) {
-      let bx = b.x + b.vx;
-      let by = b.y + b.vy;
+      if (!localBullets[id]) {
+        localBullets[id] = { ...b };
+      }
+    }
+
+    for (const [id, b] of Object.entries(localBullets)) {
+      b.x += b.vx;
+      b.y += b.vy;
+
+      if (b.x < 0 || b.y < 0 || b.x > MAP_W || b.y > MAP_H || now - b.created > 3000) {
+        delete localBullets[id];
+      }
+    }
+  }
+
+  async function hostCheckBulletHits() {
+    const now = Date.now();
+
+    for (const [id, b] of Object.entries(localBullets)) {
       let removeBullet = false;
 
-      if (bx < 0 || by < 0 || bx > MAP_W || by > MAP_H || now - b.created > 3000) {
+      if (b.x < 0 || b.y < 0 || b.x > MAP_W || b.y > MAP_H || now - b.created > 3000) {
         removeBullet = true;
       }
 
       for (const [pid, p] of Object.entries(players)) {
         if (pid === b.owner || !p.alive) continue;
-        const dx = bx - p.x;
-        const dy = by - p.y;
+
+        const dx = b.x - p.x;
+        const dy = b.y - p.y;
         const dist = Math.hypot(dx, dy);
 
         if (dist < 28) {
           const newHp = Math.max(0, p.hp - b.damage);
           const alive = newHp > 0;
+
           await update(ref(db, `rooms/${roomName}/players/${pid}`), { hp: newHp, alive });
 
           if (!alive && players[b.owner]) {
@@ -590,8 +615,10 @@
         }
       }
 
-      if (removeBullet) await remove(bulletRef(id));
-      else await update(bulletRef(id), { x: bx, y: by });
+      if (removeBullet) {
+        delete localBullets[id];
+        await remove(bulletRef(id));
+      }
     }
   }
 
@@ -693,7 +720,7 @@
 
     drawMap(camX, camY);
 
-    for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
+    for (const b of Object.values(localBullets)) drawBullet(b, camX, camY);
     for (const p of Object.values(players)) drawTank(p, camX, camY);
 
     requestAnimationFrame(render);
