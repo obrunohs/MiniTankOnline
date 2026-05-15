@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mini Tank Online 2D</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+  }
+
+  canvas {
+    display: block;
+    background: #293626;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, #263b25, #111);
+    z-index: 10;
+  }
+
+  .panel {
+    width: 360px;
+    background: rgba(0,0,0,0.78);
+    border: 2px solid #5cff5c;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 0 25px rgba(92,255,92,0.35);
+  }
+
+  h1, h2 { text-align: center; margin-top: 0; }
+
+  input, button {
+    width: 100%;
+    padding: 12px;
+    margin: 7px 0;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+  }
+
+  input { background: #222; color: white; outline: 1px solid #444; }
+
+  button {
+    background: #2eff2e;
+    color: #071107;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  button:hover { filter: brightness(1.15); }
+  button.secondary { background: #55aaff; }
+  button.danger { background: #ff5555; }
+  button:disabled { background: #555; color: #aaa; cursor: not-allowed; }
+
+  .player-count-box {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 5px 0 10px;
+  }
+
+  .count-btn {
+    padding: 10px 0;
+    margin: 0;
+    background: #222;
+    color: white;
+    border: 1px solid #555;
+  }
+
+  .count-btn.active {
+    background: #2eff2e;
+    color: #071107;
+    border-color: #9cff9c;
+  }
+
+  #hud {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 5;
+    background: rgba(0,0,0,0.55);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  #playersBox {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 5;
+    background: rgba(0,0,0,0.55);
+    padding: 10px 14px;
+    border-radius: 10px;
+    min-width: 170px;
+    font-size: 14px;
+  }
+
+  .hide { display: none !important; }
+  .small { font-size: 13px; color: #ccc; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="menu" class="screen">
+  <div class="panel">
+    <h1>Mini Tank Online</h1>
+    <input id="nicknameInput" placeholder="Seu nickname" maxlength="14" />
+    <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
+    <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
+
+    <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
+    <div class="player-count-box">
+      <button class="count-btn" onclick="selectMaxPlayers(1)">1</button>
+      <button class="count-btn" onclick="selectMaxPlayers(2)">2</button>
+      <button class="count-btn" onclick="selectMaxPlayers(3)">3</button>
+      <button class="count-btn active" onclick="selectMaxPlayers(4)">4</button>
+    </div>
+
+    <button onclick="createRoom()">Criar sala</button>
+    <button class="secondary" onclick="joinRoom()">Entrar na sala</button>
+    <p class="small">Até 4 jogadores por sala. A partida só inicia com 2 ou mais.</p>
+  </div>
+</div>
+
+<div id="lobby" class="screen hide">
+  <div class="panel">
+    <h2>Sala: <span id="lobbyRoomName"></span></h2>
+    <div id="lobbyPlayers"></div>
+    <button id="startBtn" onclick="startGame()">Iniciar partida</button>
+    <button class="danger" onclick="leaveRoom()">Sair da sala</button>
+    <p id="lobbyMsg" class="small"></p>
+  </div>
+</div>
+
+<div id="hud" class="hide">
+  Sala: <span id="hudRoom"></span><br>
+  Vida: <span id="hudHp">100</span><br>
+  Use WASD para mover, mouse para mirar, clique para atirar
+</div>
+
+<div id="playersBox" class="hide"></div>
+<canvas id="game"></canvas>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getDatabase,
+    ref,
+    set,
+    get,
+    update,
+    onValue,
+    remove,
+    onDisconnect,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // =========================
+  // COLOQUE SEU FIREBASE AQUI
+  // =========================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIwdaRPZEDQ4tVOGt95aLz9qKPBLODYwY",
+    authDomain: "minitankonline-819cb.firebaseapp.com",
+    databaseURL: "https://minitankonline-819cb-default-rtdb.firebaseio.com",
+    projectId: "minitankonline-819cb",
+    storageBucket: "minitankonline-819cb.firebasestorage.app",
+    messagingSenderId: "803296082963",
+    appId: "1:803296082963:web:04fb2e63dd25679f33d3e6"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // =========================
+  // ELEMENTOS
+  // =========================
+  const menu = document.getElementById("menu");
+  const lobby = document.getElementById("lobby");
+  const lobbyRoomName = document.getElementById("lobbyRoomName");
+  const lobbyPlayers = document.getElementById("lobbyPlayers");
+  const lobbyMsg = document.getElementById("lobbyMsg");
+  const startBtn = document.getElementById("startBtn");
+  const hud = document.getElementById("hud");
+  const playersBox = document.getElementById("playersBox");
+  const hudRoom = document.getElementById("hudRoom");
+  const hudHp = document.getElementById("hudHp");
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+
+  window.addEventListener("resize", () => {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+  });
+
+  // =========================
+  // ESTADO DO JOGO
+  // =========================
+  let playerId = localStorage.getItem("tankPlayerId") || crypto.randomUUID();
+  localStorage.setItem("tankPlayerId", playerId);
+
+  let nickname = "";
+  let roomName = "";
+  let roomPassword = "";
+  let isHost = false;
+  let players = {};
+  let bullets = {};
+  let gameStarted = false;
+  let lastShot = 0;
+  let maxPlayersSelected = 4;
+
+  const MAP_W = 2400;
+  const MAP_H = 1600;
+
+  const colors = ["#35a7ff", "#ff4d4d", "#ffd93d", "#b36bff"];
+
+  const keys = {};
+  const mouse = { x: 0, y: 0, down: false };
+
+  addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  canvas.addEventListener("mousemove", e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
+  canvas.addEventListener("mousedown", () => mouse.down = true);
+  canvas.addEventListener("mouseup", () => mouse.down = false);
+
+  function safeRoomName(name) {
+    return name.trim().replace(/[.#$/\[\]]/g, "_");
+  }
+
+  function showMenuError(msg) {
+    let old = document.getElementById("menuError");
+    if (!old) {
+      old = document.createElement("p");
+      old.id = "menuError";
+      old.className = "small";
+      old.style.color = "#ff7070";
+      document.querySelector("#menu .panel").appendChild(old);
+    }
+    old.textContent = msg;
+  }
+
+  function clearMenuError() {
+    const old = document.getElementById("menuError");
+    if (old) old.textContent = "";
+  }
+
+  function selectMaxPlayers(n) {
+    maxPlayersSelected = n;
+    document.querySelectorAll(".count-btn").forEach(btn => {
+      btn.classList.toggle("active", Number(btn.textContent) === n);
+    });
+  }
+
+  function getInputs() {
+    clearMenuError();
+
+    nickname = document.getElementById("nicknameInput").value.trim() || "Player";
+    roomName = safeRoomName(document.getElementById("roomInput").value || "");
+    roomPassword = document.getElementById("passwordInput").value.trim();
+
+    if (!roomName) {
+      showMenuError("Digite o nome da sala.");
+      return false;
+    }
+
+    if (!roomPassword) {
+      showMenuError("Digite a senha da sala.");
+      return false;
+    }
+
+    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "SUA_API_KEY") {
+      showMenuError("Você ainda precisa colocar as configurações reais do Firebase no código.");
+      return false;
+    }
+
+    return true;
+  }
+
+  function roomRef() {
+    return ref(db, `rooms/${roomName}`);
+  }
+
+  function playerRef() {
+    return ref(db, `rooms/${roomName}/players/${playerId}`);
+  }
+
+  function bulletRef(id) {
+    return ref(db, `rooms/${roomName}/bullets/${id}`);
+  }
+
+  function spawnPosition(index) {
+    const spawns = [
+      { x: 180, y: 180 },
+      { x: MAP_W - 180, y: 180 },
+      { x: 180, y: MAP_H - 180 },
+      { x: MAP_W - 180, y: MAP_H - 180 }
+    ];
+    return spawns[index % spawns.length];
+  }
+
+  async function createRoom() {
+    try {
+      if (!getInputs()) return;
+
+      const snap = await get(roomRef());
+      if (snap.exists()) {
+        showMenuError("Essa sala já existe. Use outro nome ou entre nela.");
+        return;
+      }
+
+      isHost = true;
+
+      await set(roomRef(), {
+        password: roomPassword,
+        host: playerId,
+        status: "lobby",
+        maxPlayers: maxPlayersSelected,
+        createdAt: serverTimestamp()
+      });
+
+      await addPlayerToRoom();
+      openLobby();
+    } catch (erro) {
+      console.error(erro);
+      showMenuError("Erro ao criar sala. Confira o Firebase e as Rules do Realtime Database.");
+    }
+  }
+
+  async function joinRoom() {
+    try {
+      if (!getInputs()) return;
+
+      const snap = await get(roomRef());
+      if (!snap.exists()) {
+        showMenuError("Sala não encontrada.");
+        return;
+      }
+
+      const room = snap.val();
+      if (room.password !== roomPassword) {
+        showMenuError("Senha incorreta.");
+        return;
+      }
+
+      const currentPlayers = room.players ? Object.keys(room.players).length : 0;
+      const maxPlayers = room.maxPlayers || 4;
+
+      if (currentPlayers >= maxPlayers && !room.players?.[playerId]) {
+        showMenuError(`Sala cheia. O limite dessa sala é ${maxPlayers} jogador(es).`);
+        return;
+      }
+
+      if (room.status === "playing") {
+        showMenuError("Essa partida já começou.");
+        return;
+      }
+
+      isHost = room.host === playerId;
+      await addPlayerToRoom();
+      openLobby();
+    } catch (erro) {
+      console.error(erro);
+      showMenuError("Erro ao entrar na sala. Confira o Firebase e as Rules do Realtime Database.");
+    }
+  }
+
+  async function addPlayerToRoom() {
+    const snap = await get(ref(db, `rooms/${roomName}/players`));
+    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+    const pos = spawnPosition(count);
+
+    await set(playerRef(), {
+      id: playerId,
+      nickname,
+      x: pos.x,
+      y: pos.y,
+      angle: 0,
+      hp: 100,
+      color: colors[count % colors.length],
+      alive: true,
+      ready: true,
+      kills: 0
+    });
+
+    onDisconnect(playerRef()).remove();
+  }
+
+  function openLobby() {
+    menu.classList.add("hide");
+    lobby.classList.remove("hide");
+    lobbyRoomName.textContent = roomName;
+    hudRoom.textContent = roomName;
+    listenRoom();
+  }
+
+  function listenRoom() {
+    onValue(roomRef(), snap => {
+      if (!snap.exists()) {
+        location.reload();
+        return;
+      }
+
+      const room = snap.val();
+      players = room.players || {};
+      bullets = room.bullets || {};
+      gameStarted = room.status === "playing";
+      isHost = room.host === playerId;
+
+      renderLobby(room);
+      renderPlayersBox();
+
+      if (gameStarted) {
+        lobby.classList.add("hide");
+        hud.classList.remove("hide");
+        playersBox.classList.remove("hide");
+      }
+    });
+  }
+
+  function renderLobby(room) {
+    const list = Object.values(room.players || {});
+    lobbyPlayers.innerHTML = `<p>Jogadores: ${list.length}/${room.maxPlayers || 4}</p>` + list.map(p => `
+      <div style="padding:6px;border-bottom:1px solid #333;color:${p.color}">
+        ${p.nickname} ${room.host === p.id ? "👑 Host" : ""}
+      </div>
+    `).join("");
+
+    startBtn.disabled = !isHost || list.length < 2;
+
+    if (!isHost) lobbyMsg.textContent = "Aguardando o host iniciar a partida.";
+    else if (list.length < 2) lobbyMsg.textContent = "Precisa de pelo menos 2 jogadores para iniciar.";
+    else lobbyMsg.textContent = "Pronto para iniciar.";
+  }
+
+  function renderPlayersBox() {
+    const list = Object.values(players);
+    playersBox.innerHTML = "<b>Players</b><br>" + list.map(p => `
+      <div style="color:${p.color}">${p.nickname}: ${p.hp} HP | ${p.kills || 0} K</div>
+    `).join("");
+  }
+
+  async function startGame() {
+    const snap = await get(ref(db, `rooms/${roomName}/players`));
+    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+    const roomSnap = await get(roomRef());
+    const room = roomSnap.val();
+    const maxPlayers = room.maxPlayers || 4;
+
+    if (maxPlayers === 1) {
+      alert("Essa sala foi criada para 1 jogador. Mude para 2, 3 ou 4 se quiser iniciar online com outras pessoas.");
+      return;
+    }
+
+    if (count < 2) {
+      alert("Não pode iniciar com apenas 1 jogador.");
+      return;
+    }
+
+    if (!isHost) {
+      alert("Apenas o dono da sala pode iniciar.");
+      return;
+    }
+
+    await update(roomRef(), { status: "playing" });
+  }
+
+  async function leaveRoom() {
+    await remove(playerRef());
+    location.reload();
+  }
+
+  function getMe() {
+    return players[playerId];
+  }
+
+  async function updateMe(data) {
+    if (!roomName || !players[playerId]) return;
+    await update(playerRef(), data);
+  }
+
+  function worldMouse(me) {
+    const camX = me.x - canvas.width / 2;
+    const camY = me.y - canvas.height / 2;
+    return {
+      x: mouse.x + camX,
+      y: mouse.y + camY
+    };
+  }
+
+  async function shoot(me) {
+    const now = performance.now();
+    if (now - lastShot < 450) return;
+    lastShot = now;
+
+    const wm = worldMouse(me);
+    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
+    const id = crypto.randomUUID();
+
+    await set(bulletRef(id), {
+      id,
+      owner: playerId,
+      x: me.x + Math.cos(angle) * 34,
+      y: me.y + Math.sin(angle) * 34,
+      vx: Math.cos(angle) * 12,
+      vy: Math.sin(angle) * 12,
+      created: Date.now(),
+      damage: 25
+    });
+  }
+
+  function updateGame() {
+    const me = getMe();
+    if (!gameStarted || !me || !me.alive) return;
+
+    let nx = me.x;
+    let ny = me.y;
+    const speed = 4;
+
+    if (keys["w"]) ny -= speed;
+    if (keys["s"]) ny += speed;
+    if (keys["a"]) nx -= speed;
+    if (keys["d"]) nx += speed;
+
+    nx = Math.max(30, Math.min(MAP_W - 30, nx));
+    ny = Math.max(30, Math.min(MAP_H - 30, ny));
+
+    const wm = worldMouse(me);
+    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
+
+    hudHp.textContent = me.hp;
+
+    updateMe({ x: nx, y: ny, angle });
+
+    if (mouse.down) shoot(me);
+
+    if (isHost) hostUpdateBullets();
+  }
+
+  async function hostUpdateBullets() {
+    const now = Date.now();
+
+    for (const [id, b] of Object.entries(bullets)) {
+      let bx = b.x + b.vx;
+      let by = b.y + b.vy;
+      let removeBullet = false;
+
+      if (bx < 0 || by < 0 || bx > MAP_W || by > MAP_H || now - b.created > 3000) {
+        removeBullet = true;
+      }
+
+      for (const [pid, p] of Object.entries(players)) {
+        if (pid === b.owner || !p.alive) continue;
+        const dx = bx - p.x;
+        const dy = by - p.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 28) {
+          const newHp = Math.max(0, p.hp - b.damage);
+          const alive = newHp > 0;
+          await update(ref(db, `rooms/${roomName}/players/${pid}`), { hp: newHp, alive });
+
+          if (!alive && players[b.owner]) {
+            await update(ref(db, `rooms/${roomName}/players/${b.owner}`), {
+              kills: (players[b.owner].kills || 0) + 1
+            });
+          }
+
+          removeBullet = true;
+          break;
+        }
+      }
+
+      if (removeBullet) await remove(bulletRef(id));
+      else await update(bulletRef(id), { x: bx, y: by });
+    }
+  }
+
+  function drawGrid(camX, camY) {
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x <= MAP_W; x += 80) {
+      ctx.beginPath();
+      ctx.moveTo(x - camX, -camY);
+      ctx.lineTo(x - camX, MAP_H - camY);
+      ctx.stroke();
+    }
+
+    for (let y = 0; y <= MAP_H; y += 80) {
+      ctx.beginPath();
+      ctx.moveTo(-camX, y - camY);
+      ctx.lineTo(MAP_W - camX, y - camY);
+      ctx.stroke();
+    }
+  }
+
+  function drawMap(camX, camY) {
+    ctx.fillStyle = "#293626";
+    ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
+
+    drawGrid(camX, camY);
+
+    ctx.strokeStyle = "#a6ff6b";
+    ctx.lineWidth = 8;
+    ctx.strokeRect(-camX, -camY, MAP_W, MAP_H);
+
+    // obstáculos simples
+    const obstacles = [
+      { x: 450, y: 350, w: 260, h: 80 },
+      { x: 1000, y: 650, w: 100, h: 300 },
+      { x: 1650, y: 400, w: 320, h: 90 },
+      { x: 600, y: 1100, w: 420, h: 90 },
+      { x: 1500, y: 1150, w: 120, h: 260 }
+    ];
+
+    ctx.fillStyle = "#56615a";
+    for (const o of obstacles) {
+      ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
+    }
+  }
+
+  function drawTank(p, camX, camY) {
+    const x = p.x - camX;
+    const y = p.y - camY;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(p.angle || 0);
+
+    ctx.fillStyle = p.alive ? p.color : "#555";
+    ctx.fillRect(-24, -18, 48, 36);
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(2, -7, 36, 14);
+
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(-22, -23, 44, 6);
+    ctx.fillRect(-22, 17, 44, 6);
+
+    ctx.restore();
+
+    ctx.fillStyle = "white";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(p.nickname, x, y - 35);
+
+    ctx.fillStyle = "red";
+    ctx.fillRect(x - 24, y + 30, 48, 6);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(x - 24, y + 30, 48 * (p.hp / 100), 6);
+  }
+
+  function drawBullet(b, camX, camY) {
+    ctx.fillStyle = "#ffd93d";
+    ctx.beginPath();
+    ctx.arc(b.x - camX, b.y - camY, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const me = getMe();
+    let camX = 0;
+    let camY = 0;
+
+    if (me) {
+      camX = me.x - canvas.width / 2;
+      camY = me.y - canvas.height / 2;
+      camX = Math.max(0, Math.min(MAP_W - canvas.width, camX));
+      camY = Math.max(0, Math.min(MAP_H - canvas.height, camY));
+    }
+
+    drawMap(camX, camY);
+
+    for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
+    for (const p of Object.values(players)) drawTank(p, camX, camY);
+
+    requestAnimationFrame(render);
+  }
+
+  setInterval(updateGame, 1000 / 30);
+  render();
+
+  window.selectMaxPlayers = selectMaxPlayers;
+  window.createRoom = createRoom;
+  window.joinRoom = joinRoom;
+  window.startGame = startGame;
+  window.leaveRoom = leaveRoom;
+</script>
+</body>
+</html>
