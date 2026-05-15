@@ -30,7 +30,14 @@
     z-index: 10;
   }
 
-  (92,255,92,0.35);
+  .panel {
+    width: 720px;
+    max-width: 94vw;
+    background: rgba(0,0,0,0.78);
+    border: 2px solid #5cff5c;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 0 25px rgba(92,255,92,0.35);
   }
 
   .auth-layout {
@@ -258,42 +265,10 @@
   .room-card button {
     width: auto;
     padding: 8px 10px;
-    margin<div id="authScreen" class="screen">
-  <div class="auth-layout">
-    <div class="auth-card" id="loginBox">
-      <h1>Mini Tank Online</h1>
-      <h2>Entrar</h2>
-      <input id="loginNick" placeholder="Nickname" maxlength="14" />
-      <input id="loginPassword" placeholder="Senha" type="password" />
-      <button type="button" onclick="loginAccount()">Jogar</button>
-      <button type="button" class="secondary" onclick="showRegister()">Cadastro</button>
-      <button type="button" class="link-btn" onclick="showRecover()">Esqueci minha senha</button>
-      <p id="loginMsg" class="small"></p>
-    </div>
+    margin: 0;
+    font-size: 12px;
+  }
 
-    <div class="auth-card hide" id="registerBox">
-      <h1>Cadastro</h1>
-      <input id="registerNick" placeholder="Nickname" maxlength="14" />
-      <input id="registerEmail" placeholder="Email" type="email" />
-      <input id="registerPassword" placeholder="Senha" type="password" />
-      <input id="registerPassword2" placeholder="Repetir senha" type="password" />
-      <p class="small">A senha precisa ter letra maiúscula, letra minúscula, número e caractere especial.</p>
-      <button type="button" onclick="registerAccount()">Cadastrar e enviar email</button>
-      <button type="button" class="secondary" onclick="showLogin()">Voltar para login</button>
-      <p id="registerMsg" class="small"></p>
-    </div>
-
-    <div class="auth-card hide" id="recoverBox">
-      <h1>Recuperar senha</h1>
-      <input id="recoverEmail" placeholder="Seu email" type="email" />
-      <button type="button" onclick="recoverPassword()">Enviar recuperação</button>
-      <button type="button" class="secondary" onclick="showLogin()">Voltar</button>
-      <p id="recoverMsg" class="small"></p>
-    </div>
-  </div>
-</div>
-
-<div id="menu" class="screen hide">
   #hud {
     position: fixed;
     top: 10px;
@@ -328,8 +303,8 @@
     <div class="auth-card" id="loginBox">
       <h1>Mini Tank Online</h1>
       <h2>Entrar</h2>
-      <input id="loginNick" placeholder="Nickname" maxlength="14" />
-      <input id="loginPassword" placeholder="Senha" type="password" />
+      <input id="loginNick" placeholder="Nickname" maxlength="14" autocomplete="username" />
+      <input id="loginPassword" placeholder="Senha" type="password" autocomplete="current-password" />
       <button type="button" onclick="loginAccount()">Jogar</button>
       <button type="button" class="secondary" onclick="showRegister()">Cadastro</button>
       <button type="button" class="link-btn" onclick="showRecover()">Esqueci minha senha</button>
@@ -338,10 +313,10 @@
 
     <div class="auth-card hide" id="registerBox">
       <h1>Cadastro</h1>
-      <input id="registerNick" placeholder="Nickname" maxlength="14" />
-      <input id="registerEmail" placeholder="Email" type="email" />
-      <input id="registerPassword" placeholder="Senha" type="password" />
-      <input id="registerPassword2" placeholder="Repetir senha" type="password" />
+      <input id="registerNick" placeholder="Nickname" maxlength="14" autocomplete="username" />
+      <input id="registerEmail" placeholder="Email" type="email" autocomplete="email" />
+      <input id="registerPassword" placeholder="Senha" type="password" autocomplete="new-password" />
+      <input id="registerPassword2" placeholder="Repetir senha" type="password" autocomplete="new-password" />
       <p class="small">Senha: maiúscula, minúscula, número e caractere especial.</p>
       <button type="button" onclick="registerAccount()">Cadastrar e enviar email</button>
       <button type="button" class="secondary" onclick="showLogin()">Voltar para login</button>
@@ -576,7 +551,11 @@
   }
 
   function validPassword(pass) {
-    return /[a-z]/.test(pass) && /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
+    const temMinuscula = /[a-z]/.test(pass);
+    const temMaiuscula = /[A-Z]/.test(pass);
+    const temNumero = /[0-9]/.test(pass);
+    const temEspecial = /[^A-Za-z0-9]/.test(pass);
+    return temMinuscula && temMaiuscula && temNumero && temEspecial;
   }
 
   async function registerAccount() {
@@ -602,7 +581,7 @@
     }
 
     if (!validPassword(pass)) {
-      setAuthMsg("registerMsg", "Senha fraca. Use maiúscula, minúscula, número e caractere especial.");
+      setAuthMsg("registerMsg", "Senha inválida. Ela precisa ter: letra maiúscula, letra minúscula, número e caractere especial.");
       return;
     }
 
@@ -617,7 +596,7 @@
       await updateProfile(cred.user, { displayName: nick });
       await set(ref(db, `usersByNick/${key}`), { email, nick, uid: cred.user.uid });
       await sendEmailVerification(cred.user);
-      setAuthMsg("registerMsg", "Cadastro criado. Confirme seu email e depois faça login.", true);
+      setAuthMsg("registerMsg", "Cadastro criado. Enviamos um link de confirmação para seu email. Confirme antes de jogar.", true);
       setTimeout(showLogin, 2500);
     } catch (e) {
       setAuthMsg("registerMsg", "Erro no cadastro: " + e.message);
@@ -646,11 +625,14 @@
 
       if (!cred.user.emailVerified) {
         await sendEmailVerification(cred.user);
-        setAuthMsg("loginMsg", "Confirme seu email. Enviamos outro link de confirmação.");
+        setAuthMsg("loginMsg", "Seu email ainda não foi confirmado. Enviamos outro link de confirmação.");
         return;
       }
 
       nickname = cred.user.displayName || data.nick || nick;
+      document.getElementById("loggedNickname").textContent = nickname;
+      authScreen.classList.add("hide");
+      menu.classList.remove("hide");
     } catch (e) {
       setAuthMsg("loginMsg", "Erro ao entrar: nickname ou senha incorretos.");
     }
@@ -665,7 +647,7 @@
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setAuthMsg("recoverMsg", "Link de troca de senha enviado para seu email.", true);
+      setAuthMsg("recoverMsg", "Enviamos para seu email um link oficial para trocar a senha.", true);
     } catch (e) {
       setAuthMsg("recoverMsg", "Erro ao recuperar senha: " + e.message);
     }
@@ -1391,6 +1373,9 @@
   render();
 
   startPublicRoomsList();
+
+  // Começa sempre na primeira tela: login.
+  showLogin();
 
   window.showLogin = showLogin;
   window.showRegister = showRegister;
