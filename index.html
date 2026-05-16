@@ -4,346 +4,293 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Mini Tank Online 2D</title>
+
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    overflow: hidden;
-    font-family: Arial, sans-serif;
-    background: #111;
-    color: white;
-  }
-
-  canvas {
-    display: block;
-    background: #293626;
-    cursor: none;
-  }
-
-  .screen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: radial-gradient(circle, #263b25, #111);
-    z-index: 10;
-  }
-
-  .panel {
-    width: 1050px;
-    max-width: 96vw;
-    background: rgba(0,0,0,0.78);
-    border: 2px solid #5cff5c;
-    border-radius: 14px;
-    padding: 18px;
-    box-shadow: 0 0 25px rgba(92,255,92,0.35);
-  }
-
-  .auth-layout {
-    width: 420px;
-    max-width: 94vw;
-  }
-
-  .auth-card {
-    background: rgba(0,0,0,0.82);
-    border: 2px solid #5cff5c;
-    border-radius: 14px;
-    padding: 22px;
-    box-shadow: 0 0 25px rgba(92,255,92,0.35);
-  }
-
-  .top-user-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .logged-user {
-    flex: 1;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    padding: 10px;
-    border-radius: 10px;
-    text-align: center;
-  }
-
-  .logout-btn {
-    width: 130px;
-    margin: 0;
-    background: #ff5555;
-    color: white;
-  }
-
-  .menu-layout {
-    display: grid;
-    grid-template-columns: 1fr 230px 1fr;
-    gap: 16px;
-    align-items: start;
-  }
-
-  .menu-section {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 12px;
-    padding: 12px;
-  }
-
-  .link-btn {
-    background: transparent;
-    color: #9cff9c;
-    text-decoration: underline;
-  }
-
-  h1, h2 { text-align: center; margin-top: 0; }
-
-  input, button {
-    width: 100%;
-    padding: 12px;
-    margin: 7px 0;
-    border-radius: 8px;
-    border: none;
-    font-size: 15px;
-  }
-
-  input { background: #222; color: white; outline: 1px solid #444; }
-
-  button {
-    background: #2eff2e;
-    color: #071107;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  button:hover { filter: brightness(1.15); }
-  button.secondary { background: #55aaff; }
-  button.danger { background: #ff5555; }
-  button:disabled { background: #555; color: #aaa; cursor: not-allowed; }
-
-  .player-count-box {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin: 5px 0 10px;
-  }
-
-  .count-btn, .round-btn {
-    padding: 10px 0;
-    margin: 0;
-    background: #222;
-    color: white;
-    border: 1px solid #555;
-  }
-
-  .count-btn.active, .round-btn.active {
-    background: #2eff2e;
-    color: #071107;
-    border-color: #9cff9c;
-  }
-
-  select {
-    width: 100%;
-    padding: 12px;
-    margin: 7px 0;
-    border-radius: 8px;
-    background: #222;
-    color: white;
-    border: 1px solid #555;
-    font-size: 15px;
-  }
-
-  .map-selector {
-    margin: 12px 0;
-    text-align: center;
-  }
-
-  .map-name {
-    font-weight: bold;
-    margin-bottom: 7px;
-    color: #9cff9c;
-  }
-
-  .map-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-
-  .arrow-btn {
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    margin: 0;
-    border-radius: 50%;
-    font-size: 25px;
-    line-height: 48px;
-  }
-
-  .map-preview {
-    width: 105px;
-    height: 105px;
-    border: 3px solid #2eff2e;
-    border-radius: 12px;
-    box-shadow: 0 0 15px rgba(46,255,46,0.35);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .map-destruicao {
-    background:
-      linear-gradient(90deg, transparent 44%, #9b5c36 45% 55%, transparent 56%),
-      linear-gradient(0deg, transparent 25%, #9b5c36 26% 36%, transparent 37% 65%, #9b5c36 66% 76%, transparent 77%),
-      #34402e;
-  }
-
-  .map-arvores {
-    background:
-      radial-gradient(circle at 25% 25%, #0b8f25 0 9px, transparent 10px),
-      radial-gradient(circle at 65% 35%, #0a6f20 0 12px, transparent 13px),
-      radial-gradient(circle at 40% 70%, #13a832 0 11px, transparent 12px),
-      radial-gradient(circle at 80% 80%, #0b8f25 0 10px, transparent 11px),
-      #253a22;
-  }
-
-  .map-agua {
-    background:
-      radial-gradient(circle at 30% 35%, #2e9ee8 0 18px, transparent 19px),
-      radial-gradient(circle at 75% 60%, #1c6fb1 0 22px, transparent 23px),
-      linear-gradient(45deg, #5b4a2b, #2f3b24);
-  }
-
-  .map-diferentes {
-    background:
-      linear-gradient(90deg, #264625 0 33%, #5b4a2b 34% 66%, #243b55 67% 100%);
-  }
-
-  .map-moveis {
-    background:
-      linear-gradient(90deg, transparent 30%, #c0c0c0 31% 42%, transparent 43% 60%, #ffcc00 61% 72%, transparent 73%),
-      #263626;
-  }
-
-  .map-noturna {
-    background:
-      radial-gradient(circle at 50% 50%, rgba(0,255,255,0.5), transparent 35%),
-      linear-gradient(45deg, #07101f, #13071f);
-  }
-
-  .lobby-map-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 10px;
-    margin: 10px 0 12px;
-  }
-
-  .lobby-map-title {
-    width: 80px;
-    font-weight: bold;
-    color: #9cff9c;
-    text-align: center;
-    font-size: 14px;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .lobby-map-preview {
-    width: 82px;
-    height: 82px;
-    border: 2px solid #2eff2e;
-    border-radius: 10px;
-    box-shadow: 0 0 12px rgba(46,255,46,0.25);
-    flex-shrink: 0;
-  }
-
-  .public-rooms-box {
-    margin-top: 14px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 12px;
-    padding: 10px;
-    max-height: 260px;
-    overflow-y: auto;
-  }
-
-  .public-rooms-box h3 {
-    margin: 0 0 8px;
-    text-align: center;
-    font-size: 16px;
-    color: #9cff9c;
-  }
-
-  .room-card {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-    align-items: center;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 9px;
-    padding: 8px;
-    margin-bottom: 7px;
-  }
-
-  .room-card-title {
-    font-weight: bold;
-    color: white;
-    word-break: break-word;
-  }
-
-  .room-card-info {
-    font-size: 12px;
-    color: #ccc;
-  }
-
-  .room-card button {
-    width: auto;
-    padding: 8px 10px;
-    margin: 0;
-    font-size: 12px;
-  }
-
-  #hud {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 5;
-    background: rgba(0,0,0,0.55);
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 14px;
-  }
-
-  #playersBox {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 5;
-    background: rgba(0,0,0,0.55);
-    padding: 10px 14px;
-    border-radius: 10px;
-    min-width: 170px;
-    font-size: 14px;
-  }
-
-  .hide { display: none !important; }
-  .small { font-size: 13px; color: #ccc; text-align: center; }
-
-  @media (max-width: 850px) {
-    body { overflow: auto; }
-    .screen { align-items: flex-start; padding: 12px 0; overflow-y: auto; }
-    .menu-layout { grid-template-columns: 1fr; }
-    .panel { width: 94vw; }
-    .top-user-bar { flex-direction: column; }
-    .logout-btn { width: 100%; }
-  }
+*{box-sizing:border-box}
+body{
+  margin:0;
+  overflow:hidden;
+  font-family:Arial,sans-serif;
+  background:#111;
+  color:white;
+}
+canvas{
+  display:block;
+  background:#293626;
+  cursor:none;
+}
+.screen{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle,#263b25,#111);
+  z-index:10;
+}
+.panel{
+  width:1050px;
+  max-width:96vw;
+  background:rgba(0,0,0,.78);
+  border:2px solid #5cff5c;
+  border-radius:14px;
+  padding:18px;
+  box-shadow:0 0 25px rgba(92,255,92,.35);
+}
+.auth-layout{width:420px;max-width:94vw}
+.auth-card{
+  background:rgba(0,0,0,.82);
+  border:2px solid #5cff5c;
+  border-radius:14px;
+  padding:22px;
+  box-shadow:0 0 25px rgba(92,255,92,.35);
+}
+.top-user-bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.logged-user{
+  flex:1;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);
+  padding:10px;
+  border-radius:10px;
+  text-align:center;
+}
+.logout-btn{
+  width:130px;
+  margin:0;
+  background:#ff5555;
+  color:white;
+}
+.menu-layout{
+  display:grid;
+  grid-template-columns:1fr 230px 1fr;
+  gap:16px;
+  align-items:start;
+}
+.menu-section{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  padding:12px;
+}
+.link-btn{
+  background:transparent;
+  color:#9cff9c;
+  text-decoration:underline;
+}
+h1,h2{text-align:center;margin-top:0}
+input,button,select{
+  width:100%;
+  padding:12px;
+  margin:7px 0;
+  border-radius:8px;
+  border:none;
+  font-size:15px;
+}
+input,select{
+  background:#222;
+  color:white;
+  outline:1px solid #444;
+}
+button{
+  background:#2eff2e;
+  color:#071107;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover{filter:brightness(1.15)}
+button.secondary{background:#55aaff}
+button.danger{background:#ff5555}
+button:disabled{background:#555;color:#aaa;cursor:not-allowed}
+.player-count-box{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin:5px 0 10px;
+}
+.count-btn,.round-btn{
+  padding:10px 0;
+  margin:0;
+  background:#222;
+  color:white;
+  border:1px solid #555;
+}
+.count-btn.active,.round-btn.active{
+  background:#2eff2e;
+  color:#071107;
+  border-color:#9cff9c;
+}
+.map-selector{
+  margin:12px 0;
+  text-align:center;
+}
+.map-name{
+  font-weight:bold;
+  margin-bottom:7px;
+  color:#9cff9c;
+}
+.map-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.arrow-btn{
+  width:48px;
+  height:48px;
+  padding:0;
+  margin:0;
+  border-radius:50%;
+  font-size:25px;
+  line-height:48px;
+}
+.map-preview{
+  width:105px;
+  height:105px;
+  border:3px solid #2eff2e;
+  border-radius:12px;
+  box-shadow:0 0 15px rgba(46,255,46,.35);
+  overflow:hidden;
+}
+.map-destruicao{
+  background:
+    linear-gradient(90deg,transparent 44%,#9b5c36 45% 55%,transparent 56%),
+    linear-gradient(0deg,transparent 25%,#9b5c36 26% 36%,transparent 37% 65%,#9b5c36 66% 76%,transparent 77%),
+    #34402e;
+}
+.map-arvores{
+  background:
+    radial-gradient(circle at 25% 25%,#0b8f25 0 9px,transparent 10px),
+    radial-gradient(circle at 65% 35%,#0a6f20 0 12px,transparent 13px),
+    radial-gradient(circle at 40% 70%,#13a832 0 11px,transparent 12px),
+    radial-gradient(circle at 80% 80%,#0b8f25 0 10px,transparent 11px),
+    #253a22;
+}
+.map-agua{
+  background:
+    radial-gradient(circle at 30% 35%,#2e9ee8 0 18px,transparent 19px),
+    radial-gradient(circle at 75% 60%,#1c6fb1 0 22px,transparent 23px),
+    linear-gradient(45deg,#5b4a2b,#2f3b24);
+}
+.map-diferentes{
+  background:linear-gradient(90deg,#264625 0 33%,#5b4a2b 34% 66%,#243b55 67% 100%);
+}
+.map-moveis{
+  background:
+    linear-gradient(90deg,transparent 30%,#c0c0c0 31% 42%,transparent 43% 60%,#ffcc00 61% 72%,transparent 73%),
+    #263626;
+}
+.map-noturna{
+  background:
+    radial-gradient(circle at 50% 50%,rgba(0,255,255,.5),transparent 35%),
+    linear-gradient(45deg,#07101f,#13071f);
+}
+.lobby-map-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  padding:10px;
+  margin:10px 0 12px;
+}
+.lobby-map-title{
+  width:80px;
+  font-weight:bold;
+  color:#9cff9c;
+  text-align:center;
+  font-size:14px;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.lobby-map-preview{
+  width:82px;
+  height:82px;
+  border:2px solid #2eff2e;
+  border-radius:10px;
+  box-shadow:0 0 12px rgba(46,255,46,.25);
+  flex-shrink:0;
+}
+.public-rooms-box{
+  margin-top:14px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:12px;
+  padding:10px;
+  max-height:260px;
+  overflow-y:auto;
+}
+.public-rooms-box h3{
+  margin:0 0 8px;
+  text-align:center;
+  font-size:16px;
+  color:#9cff9c;
+}
+.room-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  align-items:center;
+  background:rgba(0,0,0,.35);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:9px;
+  padding:8px;
+  margin-bottom:7px;
+}
+.room-card-title{
+  font-weight:bold;
+  color:white;
+  word-break:break-word;
+}
+.room-card-info{
+  font-size:12px;
+  color:#ccc;
+}
+.room-card button{
+  width:auto;
+  padding:8px 10px;
+  margin:0;
+  font-size:12px;
+}
+#hud{
+  position:fixed;
+  top:10px;
+  left:10px;
+  z-index:5;
+  background:rgba(0,0,0,.55);
+  padding:10px 14px;
+  border-radius:10px;
+  font-size:14px;
+}
+#playersBox{
+  position:fixed;
+  top:10px;
+  right:10px;
+  z-index:5;
+  background:rgba(0,0,0,.55);
+  padding:10px 14px;
+  border-radius:10px;
+  min-width:170px;
+  font-size:14px;
+}
+.hide{display:none!important}
+.small{font-size:13px;color:#ccc;text-align:center}
+@media(max-width:850px){
+  body{overflow:auto}
+  .screen{align-items:flex-start;padding:12px 0;overflow-y:auto}
+  .menu-layout{grid-template-columns:1fr}
+  .panel{width:94vw}
+  .top-user-bar{flex-direction:column}
+  .logout-btn{width:100%}
+}
 </style>
 </head>
+
 <body>
 
 <div id="authScreen" class="screen hide">
@@ -393,7 +340,7 @@
     <div class="menu-layout">
       <div class="menu-section">
         <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
-        <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
+        <input id="passwordInput" placeholder="Senha da sala opcional" maxlength="20" type="password" />
 
         <p class="small" style="margin-bottom:4px">Modo de batalha</p>
         <select id="gameModeSelect" onchange="changeGameMode()">
@@ -442,13 +389,13 @@
       </div>
     </div>
 
-    <p class="small">Até 4 jogadores por sala. A partida só inicia com 2 ou mais.</p>
+    <p class="small">Modo Normal pode iniciar sozinho. Modos de batalha precisam de 2 jogadores ou mais.</p>
   </div>
 </div>
 
 <div id="lobby" class="screen hide">
   <div class="panel">
-    <h2 style="word-break:break-word; font-size:22px;">Sala: <span id="lobbyRoomName"></span></h2>
+    <h2 style="word-break:break-word;font-size:22px;">Sala: <span id="lobbyRoomName"></span></h2>
 
     <div class="lobby-map-card">
       <div>
@@ -469,185 +416,509 @@
   Sala: <span id="hudRoom"></span><br>
   Vida: <span id="hudHp">300/300</span><br>
   Munição: <span id="hudAmmo">2/2</span><br>
-  Use WASD para mover, mouse para mirar, clique para atirar
+  WASD move • Mouse mira • Clique atira • F lanterna no mapa noturno
 </div>
 
 <div id="playersBox" class="hide"></div>
 <canvas id="game"></canvas>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    setPersistence,
-    browserSessionPersistence,
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    sendEmailVerification,
-    sendPasswordResetEmail,
-    updateProfile,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getDatabase,
-    ref,
-    set,
-    get,
-    update,
-    onValue,
-    remove,
-    onDisconnect,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  setPersistence,
+  browserSessionPersistence,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  updateProfile,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // =========================
-  // COLOQUE SEU FIREBASE AQUI
-  // =========================
-  const firebaseConfig = {
-    apiKey: "AIzaSyCIwdaRPZEDQ4tVOGt95aLz9qKPBLODYwY",
-    authDomain: "minitankonline-819cb.firebaseapp.com",
-    databaseURL: "https://minitankonline-819cb-default-rtdb.firebaseio.com",
-    projectId: "minitankonline-819cb",
-    storageBucket: "minitankonline-819cb.firebasestorage.app",
-    messagingSenderId: "803296082963",
-    appId: "1:803296082963:web:04fb2e63dd25679f33d3e6"
-  };
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  update,
+  onValue,
+  remove,
+  onDisconnect,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
-  setPersistence(auth, browserSessionPersistence).catch(console.error);
+const firebaseConfig = {
+  apiKey: "AIzaSyCIwdaRPZEDQ4tVOGt95aLz9qKPBLODYwY",
+  authDomain: "minitankonline-819cb.firebaseapp.com",
+  databaseURL: "https://minitankonline-819cb-default-rtdb.firebaseio.com",
+  projectId: "minitankonline-819cb",
+  storageBucket: "minitankonline-819cb.firebasestorage.app",
+  messagingSenderId: "803296082963",
+  appId: "1:803296082963:web:04fb2e63dd25679f33d3e6"
+};
 
-  // =========================
-  // ELEMENTOS
-  // =========================
-  const authScreen = document.getElementById("authScreen");
-  const menu = document.getElementById("menu");
-  const lobby = document.getElementById("lobby");
-  const lobbyRoomName = document.getElementById("lobbyRoomName");
-  const lobbyPlayers = document.getElementById("lobbyPlayers");
-  const lobbyMsg = document.getElementById("lobbyMsg");
-  const startBtn = document.getElementById("startBtn");
-  const hud = document.getElementById("hud");
-  const playersBox = document.getElementById("playersBox");
-  const hudRoom = document.getElementById("hudRoom");
-  const hudHp = document.getElementById("hudHp");
-  const hudAmmo = document.getElementById("hudAmmo");
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+setPersistence(auth, browserSessionPersistence).catch(console.error);
 
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
+const authScreen = document.getElementById("authScreen");
+const menu = document.getElementById("menu");
+const lobby = document.getElementById("lobby");
+const lobbyRoomName = document.getElementById("lobbyRoomName");
+const lobbyPlayers = document.getElementById("lobbyPlayers");
+const lobbyMsg = document.getElementById("lobbyMsg");
+const startBtn = document.getElementById("startBtn");
+const hud = document.getElementById("hud");
+const playersBox = document.getElementById("playersBox");
+const hudRoom = document.getElementById("hudRoom");
+const hudHp = document.getElementById("hudHp");
+const hudAmmo = document.getElementById("hudAmmo");
 
-  // Camada separada para a escuridão do mapa noturno.
-  // Assim a lanterna revela o mapa sem apagar o canvas principal.
-  const nightCanvas = document.createElement("canvas");
-  const nightCtx = nightCanvas.getContext("2d");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
+const nightCanvas = document.createElement("canvas");
+const nightCtx = nightCanvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+nightCanvas.width = innerWidth;
+nightCanvas.height = innerHeight;
+
+window.addEventListener("resize", () => {
   canvas.width = innerWidth;
   canvas.height = innerHeight;
   nightCanvas.width = innerWidth;
   nightCanvas.height = innerHeight;
+});
 
-  window.addEventListener("resize", () => {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-    nightCanvas.width = innerWidth;
-    nightCanvas.height = innerHeight;
-  });
+let playerId = localStorage.getItem("tankPlayerId") || crypto.randomUUID();
+localStorage.setItem("tankPlayerId", playerId);
 
-  // =========================
-  // ESTADO DO JOGO
-  // =========================
-  let playerId = localStorage.getItem("tankPlayerId") || crypto.randomUUID();
-  localStorage.setItem("tankPlayerId", playerId);
+let nickname = "";
+let currentUserData = null;
+let roomName = "";
+let roomPassword = "";
+let isHost = false;
+let players = {};
+let bullets = {};
+let gameStarted = false;
+let lastPlayerSync = 0;
+let lastBulletSync = 0;
+let localPlayer = null;
 
-  let nickname = "";
-  let currentUserData = null;
-  let roomName = "";
-  let roomPassword = "";
-  let isHost = false;
-  let players = {};
-  let bullets = {};
-  let gameStarted = false;
-  let lastPlayerSync = 0;
-  let lastBulletSync = 0;
-  let localPlayer = null;
-  let lastShot = 0;
-  let shotsInClip = 0;
-  let reloadingUntil = 0;
-  let lastRespawnBeep = 0;
-  let maxPlayersSelected = 4;
-  let selectedRounds = 3;
-  let selectedGameMode = "normal";
-  let selectedMapIndex = 0;
-  let currentMapType = "destruicao";
-  let roomGame = null;
-  let lastSoundEventAt = 0;
+let lastShot = 0;
+let shotsInClip = 0;
+let reloadingUntil = 0;
 
-  const sounds = {
-    shot: new Audio("tiro.mp3"),
-    explosion: new Audio("explosao.mp3"),
-    flagTake: new Audio("pegar_bandeira.mp3"),
-    flagScore: new Audio("pontuar_bandeira.mp3"),
-    flagReturn: new Audio("recuperar_bandeira.mp3"),
-    flashlight: new Audio("lanterna.mp3"),
-    spawnCountdown: new Audio("spawn_countdown.mp3")
-  };
+let lastRespawnBeep = 0;
+let explosions = {};
 
-  Object.values(sounds).forEach(s => {
-    s.volume = 0.55;
-    s.preload = "auto";
-  });
+let maxPlayersSelected = 4;
+let selectedRounds = 3;
+let selectedGameMode = "normal";
+let selectedMapIndex = 0;
+let currentMapType = "destruicao";
+let roomGame = null;
+let lastSoundEventAt = 0;
+let publicRoomsStarted = false;
 
-  function playSound(name) {
-    const base = sounds[name];
-    if (!base) return;
-    const s = base.cloneNode();
-    s.volume = base.volume;
-    s.play().catch(() => {});
+const MAP_W = 2400;
+const MAP_H = 1600;
+
+const sounds = {
+  shot: new Audio("tiro.mp3"),
+  explosion: new Audio("explosao.mp3"),
+  flagTake: new Audio("pegar_bandeira.mp3"),
+  flagScore: new Audio("pontuar_bandeira.mp3"),
+  flagReturn: new Audio("recuperar_bandeira.mp3"),
+  flashlight: new Audio("lanterna.mp3"),
+  spawnCountdown: new Audio("spawn_countdown.mp3")
+};
+
+Object.values(sounds).forEach(s => {
+  s.volume = 0.55;
+  s.preload = "auto";
+});
+
+function playSound(name){
+  const base = sounds[name];
+  if(!base) return;
+  const s = base.cloneNode();
+  s.volume = base.volume;
+  s.play().catch(()=>{});
+}
+
+function handleSoundEvent(game){
+  if(!game || !game.soundEvent) return;
+  const ev = game.soundEvent;
+  if(!ev.at || ev.at <= lastSoundEventAt) return;
+
+  lastSoundEventAt = ev.at;
+
+  if(ev.type === "explosion"){
+    explosions[ev.at] = {
+      x: ev.x || 0,
+      y: ev.y || 0,
+      start: Date.now()
+    };
   }
 
-  function handleSoundEvent(game) {
-    if (!game || !game.soundEvent) return;
-    const ev = game.soundEvent;
-    if (!ev.at || ev.at <= lastSoundEventAt) return;
-    lastSoundEventAt = ev.at;
+  if(ev.type === "shot" && ev.by === playerId) return;
 
-    // Quem atirou já escuta o tiro localmente, então não duplica.
-    if (ev.type === "shot" && ev.by === playerId) return;
+  playSound(ev.type);
+}
 
-    playSound(ev.type);
+const mapOptions = [
+  { name:"Destruir", fullName:"Destruição de paredes", type:"destruicao", css:"map-destruicao" },
+  { name:"Árvores", fullName:"Árvores", type:"arvores", css:"map-arvores" },
+  { name:"Água", fullName:"Água/lama", type:"agua", css:"map-agua" },
+  { name:"Mistura", fullName:"Mapas diferentes", type:"diferentes", css:"map-diferentes" },
+  { name:"Móveis", fullName:"Obstáculos móveis", type:"moveis", css:"map-moveis" },
+  { name:"Noturno", fullName:"Arena noturna", type:"noturna", css:"map-noturna" }
+];
+
+const keys = {};
+const mouse = { x:0, y:0, down:false, clicked:false };
+
+addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+
+  if(k === "f" && !keys.f){
+    toggleFlashlight();
   }
-  let publicRoomsStarted = false;
 
-  const mapOptions = [
-    { name: "Destruir", fullName: "Destruição de paredes", type: "destruicao", css: "map-destruicao" },
-    { name: "Árvores", fullName: "Árvores", type: "arvores", css: "map-arvores" },
-    { name: "Água", fullName: "Água/lama", type: "agua", css: "map-agua" },
-    { name: "Mistura", fullName: "Mapas diferentes", type: "diferentes", css: "map-diferentes" },
-    { name: "Móveis", fullName: "Obstáculos móveis", type: "moveis", css: "map-moveis" },
-    { name: "Noturno", fullName: "Arena noturna", type: "noturna", css: "map-noturna" }
+  keys[k] = true;
+});
+
+addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+canvas.addEventListener("mousemove", e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+canvas.addEventListener("mousedown", () => {
+  if(!mouse.down) mouse.clicked = true;
+  mouse.down = true;
+});
+
+canvas.addEventListener("mouseup", () => {
+  mouse.down = false;
+});
+
+function safeRoomName(name){
+  return name.trim().replace(/[.#$/\[\]]/g,"_");
+}
+
+function roomRef(){
+  return ref(db, `rooms/${roomName}`);
+}
+
+function playerRef(){
+  return ref(db, `rooms/${roomName}/players/${playerId}`);
+}
+
+function bulletRef(id){
+  return ref(db, `rooms/${roomName}/bullets/${id}`);
+}
+
+function setAuthMsg(id,msg,ok=false){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.color = ok ? "#9cff9c" : "#ff7070";
+  el.textContent = msg;
+}
+
+function showLogin(){
+  document.getElementById("loginBox").classList.remove("hide");
+  document.getElementById("registerBox").classList.add("hide");
+  document.getElementById("recoverBox").classList.add("hide");
+}
+
+function showRegister(){
+  document.getElementById("loginBox").classList.add("hide");
+  document.getElementById("registerBox").classList.remove("hide");
+  document.getElementById("recoverBox").classList.add("hide");
+}
+
+function showRecover(){
+  document.getElementById("loginBox").classList.add("hide");
+  document.getElementById("registerBox").classList.add("hide");
+  document.getElementById("recoverBox").classList.remove("hide");
+}
+
+function nickKey(nick){
+  return nick.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+}
+
+function validPassword(pass){
+  return /[a-z]/.test(pass) &&
+         /[A-Z]/.test(pass) &&
+         /[0-9]/.test(pass) &&
+         /[^A-Za-z0-9]/.test(pass);
+}
+
+async function registerAccount(){
+  const nick = document.getElementById("registerNick").value.trim();
+  const email = document.getElementById("registerEmail").value.trim();
+  const pass = document.getElementById("registerPassword").value;
+  const pass2 = document.getElementById("registerPassword2").value;
+  const key = nickKey(nick);
+
+  if(!nick || !email || !pass || !pass2){
+    setAuthMsg("registerMsg","Preencha nickname, email e senha.");
+    return;
+  }
+
+  if(!key){
+    setAuthMsg("registerMsg","Nickname inválido.");
+    return;
+  }
+
+  if(pass !== pass2){
+    setAuthMsg("registerMsg","As senhas não são iguais.");
+    return;
+  }
+
+  if(!validPassword(pass)){
+    setAuthMsg("registerMsg","Senha inválida. Use maiúscula, minúscula, número e caractere especial.");
+    return;
+  }
+
+  try{
+    const nickSnap = await get(ref(db, `usersByNick/${key}`));
+    if(nickSnap.exists()){
+      setAuthMsg("registerMsg","Esse nickname já está em uso.");
+      return;
+    }
+
+    await setPersistence(auth,browserSessionPersistence);
+    const cred = await createUserWithEmailAndPassword(auth,email,pass);
+
+    await updateProfile(cred.user,{ displayName:nick });
+    await set(ref(db, `usersByNick/${key}`), {
+      email,
+      nick,
+      uid: cred.user.uid
+    });
+
+    await sendEmailVerification(cred.user);
+
+    setAuthMsg("registerMsg","Cadastro criado. Confirme seu email antes de jogar.",true);
+    setTimeout(showLogin,2500);
+  }catch(e){
+    setAuthMsg("registerMsg","Erro no cadastro: " + e.message);
+  }
+}
+
+async function loginAccount(){
+  const nick = document.getElementById("loginNick").value.trim();
+  const pass = document.getElementById("loginPassword").value;
+  const key = nickKey(nick);
+
+  if(!nick || !pass){
+    setAuthMsg("loginMsg","Digite nickname e senha.");
+    return;
+  }
+
+  try{
+    const snap = await get(ref(db, `usersByNick/${key}`));
+
+    if(!snap.exists()){
+      setAuthMsg("loginMsg","Nickname não encontrado.");
+      return;
+    }
+
+    const data = snap.val();
+
+    await setPersistence(auth,browserSessionPersistence);
+    const cred = await signInWithEmailAndPassword(auth,data.email,pass);
+
+    if(!cred.user.emailVerified){
+      await sendEmailVerification(cred.user);
+      setAuthMsg("loginMsg","Confirme seu email. Enviamos outro link.");
+      return;
+    }
+
+    nickname = cred.user.displayName || data.nick || nick;
+    document.getElementById("loggedNickname").textContent = nickname;
+
+    authScreen.classList.add("hide");
+    menu.classList.remove("hide");
+  }catch(e){
+    setAuthMsg("loginMsg","Erro ao entrar: nickname ou senha incorretos.");
+  }
+}
+
+async function recoverPassword(){
+  const email = document.getElementById("recoverEmail").value.trim();
+
+  if(!email){
+    setAuthMsg("recoverMsg","Digite seu email.");
+    return;
+  }
+
+  try{
+    await sendPasswordResetEmail(auth,email);
+    setAuthMsg("recoverMsg","Link de recuperação enviado para seu email.",true);
+  }catch(e){
+    setAuthMsg("recoverMsg","Erro ao recuperar senha: " + e.message);
+  }
+}
+
+onAuthStateChanged(auth, user => {
+  currentUserData = user;
+
+  if(user && user.emailVerified){
+    nickname = user.displayName || nickname || "Player";
+    document.getElementById("loggedNickname").textContent = nickname;
+    authScreen.classList.add("hide");
+    menu.classList.remove("hide");
+  }else{
+    menu.classList.add("hide");
+    authScreen.classList.remove("hide");
+
+    if(user && !user.emailVerified){
+      setAuthMsg("loginMsg","Confirme seu email antes de jogar.");
+    }
+  }
+});
+
+async function logoutAccount(){
+  try{
+    if(roomName){
+      if(isHost) await remove(roomRef());
+      else await remove(playerRef());
+    }
+
+    await signOut(auth);
+    location.reload();
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function showMenuError(msg){
+  let old = document.getElementById("menuError");
+
+  if(!old){
+    old = document.createElement("p");
+    old.id = "menuError";
+    old.className = "small";
+    old.style.color = "#ff7070";
+    document.querySelector("#menu .panel").appendChild(old);
+  }
+
+  old.textContent = msg;
+}
+
+function clearMenuError(){
+  const old = document.getElementById("menuError");
+  if(old) old.textContent = "";
+}
+
+function selectMaxPlayers(n){
+  maxPlayersSelected = n;
+  document.querySelectorAll(".count-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.textContent) === n);
+  });
+}
+
+function selectRounds(n){
+  selectedRounds = n;
+  document.querySelectorAll(".round-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.textContent) === n);
+  });
+}
+
+function changeGameMode(){
+  selectedGameMode = document.getElementById("gameModeSelect").value;
+
+  document.querySelectorAll(".round-btn").forEach(btn => {
+    btn.disabled = selectedGameMode === "normal";
+  });
+}
+
+function changeMap(dir){
+  selectedMapIndex += dir;
+
+  if(selectedMapIndex < 0) selectedMapIndex = mapOptions.length - 1;
+  if(selectedMapIndex >= mapOptions.length) selectedMapIndex = 0;
+
+  const map = mapOptions[selectedMapIndex];
+  currentMapType = map.type;
+
+  document.getElementById("mapName").textContent = map.name;
+  document.getElementById("mapPreview").className = `map-preview ${map.css}`;
+}
+
+function getInputs(){
+  clearMenuError();
+
+  nickname = currentUserData?.displayName || nickname || "Player";
+  roomName = safeRoomName(document.getElementById("roomInput").value || "");
+  roomPassword = document.getElementById("passwordInput").value.trim();
+
+  if(!roomName){
+    showMenuError("Digite o nome da sala.");
+    return false;
+  }
+
+  return true;
+}
+
+function spawnPosition(index, team="blue"){
+  if(team === "blue"){
+    return { x:230, y:MAP_H / 2 - 90 + index * 70 };
+  }
+
+  if(team === "red"){
+    return { x:MAP_W - 230, y:MAP_H / 2 - 90 + index * 70 };
+  }
+
+  const spawns = [
+    { x:180, y:180 },
+    { x:MAP_W - 180, y:180 },
+    { x:180, y:MAP_H - 180 },
+    { x:MAP_W - 180, y:MAP_H - 180 }
   ];
 
-  const MAP_W = 2400;
+  return spawns[index % spawns.length];
+}
+   const MAP_W = 2400;
   const MAP_H = 1600;
 
-  const colors = ["#35a7ff", "#ff4d4d", "#ffd93d", "#b36bff"];
+  const mapOptions = [
+    { name:"Destruir", fullName:"Destruição de paredes", type:"destruicao", css:"map-destruicao" },
+    { name:"Árvores", fullName:"Árvores", type:"arvores", css:"map-arvores" },
+    { name:"Água", fullName:"Água/lama", type:"agua", css:"map-agua" },
+    { name:"Mistura", fullName:"Mapas diferentes", type:"diferentes", css:"map-diferentes" },
+    { name:"Móveis", fullName:"Obstáculos móveis", type:"moveis", css:"map-moveis" },
+    { name:"Noturno", fullName:"Arena noturna", type:"noturna", css:"map-noturna" }
+  ];
 
   const keys = {};
-  const mouse = { x: 0, y: 0, down: false, clicked: false };
+  const mouse = { x:0, y:0, down:false, clicked:false };
 
   addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
 
-    if (k === "f" && !keys["f"]) {
+    if(k === "f" && !keys.f){
       toggleFlashlight();
     }
 
     keys[k] = true;
   });
 
-  addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+  addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+  });
 
   canvas.addEventListener("mousemove", e => {
     mouse.x = e.clientX;
@@ -655,7 +926,7 @@
   });
 
   canvas.addEventListener("mousedown", () => {
-    if (!mouse.down) mouse.clicked = true;
+    if(!mouse.down) mouse.clicked = true;
     mouse.down = true;
   });
 
@@ -663,205 +934,292 @@
     mouse.down = false;
   });
 
-  function safeRoomName(name) {
-    return name.trim().replace(/[.#$/\[\]]/g, "_");
+  function drawGrid(camX, camY){
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = 1;
+
+    for(let x=0; x<MAP_W; x+=100){
+      ctx.beginPath();
+      ctx.moveTo(x - camX, -camY);
+      ctx.lineTo(x - camX, MAP_H - camY);
+      ctx.stroke();
+    }
+
+    for(let y=0; y<MAP_H; y+=100){
+      ctx.beginPath();
+      ctx.moveTo(-camX, y - camY);
+      ctx.lineTo(MAP_W - camX, y - camY);
+      ctx.stroke();
+    }
   }
 
-  function setAuthMsg(id, msg, ok = false) {
+  function getMe(){
+    return players[playerId];
+  }
+
+  function getCamera(me){
+    const camX = Math.max(0, Math.min(MAP_W - canvas.width, me.x - canvas.width / 2));
+    const camY = Math.max(0, Math.min(MAP_H - canvas.height, me.y - canvas.height / 2));
+    return { camX, camY };
+  }
+
+  function safeRoomName(name){
+    return name.trim().replace(/[.#$/\[\]]/g,"_");
+  }
+
+  function roomRef(){
+    return ref(db, `rooms/${roomName}`);
+  }
+
+  function playerRef(){
+    return ref(db, `rooms/${roomName}/players/${playerId}`);
+  }
+
+  function bulletRef(id){
+    return ref(db, `rooms/${roomName}/bullets/${id}`);
+  }
+
+  function setAuthMsg(id,msg,ok=false){
     const el = document.getElementById(id);
-    if (!el) return;
+    if(!el) return;
+
     el.style.color = ok ? "#9cff9c" : "#ff7070";
     el.textContent = msg;
   }
 
-  function showLogin() {
+  function showLogin(){
     document.getElementById("loginBox").classList.remove("hide");
     document.getElementById("registerBox").classList.add("hide");
     document.getElementById("recoverBox").classList.add("hide");
   }
 
-  function showRegister() {
+  function showRegister(){
     document.getElementById("loginBox").classList.add("hide");
     document.getElementById("registerBox").classList.remove("hide");
     document.getElementById("recoverBox").classList.add("hide");
   }
 
-  function showRecover() {
+  function showRecover(){
     document.getElementById("loginBox").classList.add("hide");
     document.getElementById("registerBox").classList.add("hide");
     document.getElementById("recoverBox").classList.remove("hide");
   }
 
-  function nickKey(nick) {
-    return nick.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  function nickKey(nick){
+    return nick.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   }
 
-  function validPassword(pass) {
-    const temMinuscula = /[a-z]/.test(pass);
-    const temMaiuscula = /[A-Z]/.test(pass);
-    const temNumero = /[0-9]/.test(pass);
-    const temEspecial = /[^A-Za-z0-9]/.test(pass);
-    return temMinuscula && temMaiuscula && temNumero && temEspecial;
+  function validPassword(pass){
+    return /[a-z]/.test(pass) &&
+           /[A-Z]/.test(pass) &&
+           /[0-9]/.test(pass) &&
+           /[^A-Za-z0-9]/.test(pass);
   }
 
-  async function registerAccount() {
+  async function toggleFlashlight(){
+    const me = getMe();
+
+    // Lanterna só funciona no mapa noturno.
+    if(currentMapType !== "noturna") return;
+    if(!gameStarted || !me || !me.alive) return;
+
+    // Morto = sem lanterna.
+    if((me.hp || 0) <= 0){
+      if(localPlayer) localPlayer.flashlight = false;
+      if(players[playerId]) players[playerId].flashlight = false;
+
+      await update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+        flashlight:false
+      }).catch(console.error);
+
+      return;
+    }
+
+    const next = !me.flashlight;
+
+    playSound("flashlight");
+
+    await update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+      flashlight: next
+    }).catch(console.error);
+
+    if(localPlayer) localPlayer.flashlight = next;
+    if(players[playerId]) players[playerId].flashlight = next;
+  }
+
+  async function registerAccount(){
     const nick = document.getElementById("registerNick").value.trim();
     const email = document.getElementById("registerEmail").value.trim();
     const pass = document.getElementById("registerPassword").value;
     const pass2 = document.getElementById("registerPassword2").value;
     const key = nickKey(nick);
 
-    if (!nick || !email || !pass || !pass2) {
-      setAuthMsg("registerMsg", "Preencha nickname, email e senha.");
+    if(!nick || !email || !pass || !pass2){
+      setAuthMsg("registerMsg","Preencha nickname, email e senha.");
       return;
     }
 
-    if (!key) {
-      setAuthMsg("registerMsg", "Nickname inválido.");
+    if(!key){
+      setAuthMsg("registerMsg","Nickname inválido.");
       return;
     }
 
-    if (pass !== pass2) {
-      setAuthMsg("registerMsg", "As senhas não são iguais.");
+    if(pass !== pass2){
+      setAuthMsg("registerMsg","As senhas não são iguais.");
       return;
     }
 
-    if (!validPassword(pass)) {
-      setAuthMsg("registerMsg", "Senha inválida. Ela precisa ter: letra maiúscula, letra minúscula, número e caractere especial.");
+    if(!validPassword(pass)){
+      setAuthMsg("registerMsg","Senha inválida.");
       return;
     }
 
-    try {
+    try{
       const nickSnap = await get(ref(db, `usersByNick/${key}`));
-      if (nickSnap.exists()) {
-        setAuthMsg("registerMsg", "Esse nickname já está em uso.");
+
+      if(nickSnap.exists()){
+        setAuthMsg("registerMsg","Esse nickname já está em uso.");
         return;
       }
 
-      await setPersistence(auth, browserSessionPersistence);
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(cred.user, { displayName: nick });
-      await set(ref(db, `usersByNick/${key}`), { email, nick, uid: cred.user.uid });
+      await setPersistence(auth,browserSessionPersistence);
+
+      const cred = await createUserWithEmailAndPassword(auth,email,pass);
+
+      await updateProfile(cred.user,{
+        displayName:nick
+      });
+
+      await set(ref(db, `usersByNick/${key}`), {
+        email,
+        nick,
+        uid: cred.user.uid
+      });
+
       await sendEmailVerification(cred.user);
-      setAuthMsg("registerMsg", "Cadastro criado. Enviamos um link de confirmação para seu email. Confirme antes de jogar.", true);
-      setTimeout(showLogin, 2500);
-    } catch (e) {
-      setAuthMsg("registerMsg", "Erro no cadastro: " + e.message);
+
+      setAuthMsg("registerMsg","Cadastro criado. Confirme o email.",true);
+
+      setTimeout(showLogin,2500);
+
+    }catch(e){
+      setAuthMsg("registerMsg","Erro no cadastro: " + e.message);
     }
   }
 
-  async function loginAccount() {
+  async function loginAccount(){
     const nick = document.getElementById("loginNick").value.trim();
     const pass = document.getElementById("loginPassword").value;
     const key = nickKey(nick);
 
-    if (!nick || !pass) {
-      setAuthMsg("loginMsg", "Digite nickname e senha.");
+    if(!nick || !pass){
+      setAuthMsg("loginMsg","Digite nickname e senha.");
       return;
     }
 
-    try {
+    try{
       const snap = await get(ref(db, `usersByNick/${key}`));
-      if (!snap.exists()) {
-        setAuthMsg("loginMsg", "Nickname não encontrado.");
+
+      if(!snap.exists()){
+        setAuthMsg("loginMsg","Nickname não encontrado.");
         return;
       }
 
       const data = snap.val();
-      await setPersistence(auth, browserSessionPersistence);
-      const cred = await signInWithEmailAndPassword(auth, data.email, pass);
 
-      if (!cred.user.emailVerified) {
+      await setPersistence(auth,browserSessionPersistence);
+
+      const cred = await signInWithEmailAndPassword(auth,data.email,pass);
+
+      if(!cred.user.emailVerified){
         await sendEmailVerification(cred.user);
-        setAuthMsg("loginMsg", "Seu email ainda não foi confirmado. Enviamos outro link de confirmação.");
+        setAuthMsg("loginMsg","Confirme seu email.");
         return;
       }
 
       nickname = cred.user.displayName || data.nick || nick;
+
       document.getElementById("loggedNickname").textContent = nickname;
+
       authScreen.classList.add("hide");
       menu.classList.remove("hide");
-    } catch (e) {
-      setAuthMsg("loginMsg", "Erro ao entrar: nickname ou senha incorretos.");
+
+    }catch(e){
+      setAuthMsg("loginMsg","Nickname ou senha incorretos.");
     }
   }
 
-  async function recoverPassword() {
+  async function recoverPassword(){
     const email = document.getElementById("recoverEmail").value.trim();
-    if (!email) {
-      setAuthMsg("recoverMsg", "Digite seu email.");
+
+    if(!email){
+      setAuthMsg("recoverMsg","Digite seu email.");
       return;
     }
 
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setAuthMsg("recoverMsg", "Enviamos para seu email um link oficial para trocar a senha.", true);
-    } catch (e) {
-      setAuthMsg("recoverMsg", "Erro ao recuperar senha: " + e.message);
+    try{
+      await sendPasswordResetEmail(auth,email);
+
+      setAuthMsg("recoverMsg","Email de recuperação enviado.",true);
+
+    }catch(e){
+      setAuthMsg("recoverMsg","Erro: " + e.message);
     }
   }
 
   onAuthStateChanged(auth, user => {
     currentUserData = user;
-    if (user && user.emailVerified) {
+
+    if(user && user.emailVerified){
       nickname = user.displayName || nickname || "Player";
+
       document.getElementById("loggedNickname").textContent = nickname;
+
       authScreen.classList.add("hide");
       menu.classList.remove("hide");
-    } else {
+
+    }else{
       menu.classList.add("hide");
       authScreen.classList.remove("hide");
-      if (user && !user.emailVerified) {
-        setAuthMsg("loginMsg", "Confirme seu email antes de jogar.");
-      }
     }
   });
 
-  async function logoutAccount() {
-    try {
-      if (roomName) {
-        if (isHost) await remove(roomRef());
-        else await remove(playerRef());
+  async function logoutAccount(){
+    try{
+      if(roomName){
+        if(isHost){
+          await remove(roomRef());
+        }else{
+          await remove(playerRef());
+        }
       }
+
       await signOut(auth);
+
       location.reload();
-    } catch (e) {
+
+    }catch(e){
       console.error(e);
     }
   }
 
-  function showMenuError(msg) {
-    let old = document.getElementById("menuError");
-    if (!old) {
-      old = document.createElement("p");
-      old.id = "menuError";
-      old.className = "small";
-      old.style.color = "#ff7070";
-      document.querySelector("#menu .panel").appendChild(old);
-    }
-    old.textContent = msg;
-  }
-
-  function clearMenuError() {
-    const old = document.getElementById("menuError");
-    if (old) old.textContent = "";
-  }
-
-  function selectMaxPlayers(n) {
+  function selectMaxPlayers(n){
     maxPlayersSelected = n;
+
     document.querySelectorAll(".count-btn").forEach(btn => {
       btn.classList.toggle("active", Number(btn.textContent) === n);
     });
   }
 
-  function selectRounds(n) {
+  function selectRounds(n){
     selectedRounds = n;
+
     document.querySelectorAll(".round-btn").forEach(btn => {
       btn.classList.toggle("active", Number(btn.textContent) === n);
     });
   }
 
-  function changeGameMode() {
+  function changeGameMode(){
     selectedGameMode = document.getElementById("gameModeSelect").value;
 
     document.querySelectorAll(".round-btn").forEach(btn => {
@@ -869,80 +1227,71 @@
     });
   }
 
-  function changeMap(dir) {
+  function changeMap(dir){
     selectedMapIndex += dir;
-    if (selectedMapIndex < 0) selectedMapIndex = mapOptions.length - 1;
-    if (selectedMapIndex >= mapOptions.length) selectedMapIndex = 0;
+
+    if(selectedMapIndex < 0) selectedMapIndex = mapOptions.length - 1;
+    if(selectedMapIndex >= mapOptions.length) selectedMapIndex = 0;
 
     const map = mapOptions[selectedMapIndex];
+
     currentMapType = map.type;
 
     document.getElementById("mapName").textContent = map.name;
-
-    const preview = document.getElementById("mapPreview");
-    preview.className = `map-preview ${map.css}`;
+    document.getElementById("mapPreview").className =
+      `map-preview ${map.css}`;
   }
 
-  function getInputs() {
-    clearMenuError();
-
+  function getInputs(){
     nickname = currentUserData?.displayName || nickname || "Player";
-    roomName = safeRoomName(document.getElementById("roomInput").value || "");
+
+    roomName = safeRoomName(
+      document.getElementById("roomInput").value || ""
+    );
+
     roomPassword = document.getElementById("passwordInput").value.trim();
 
-    if (!roomName) {
-      showMenuError("Digite o nome da sala.");
-      return false;
-    }
-
-    // Senha opcional: se deixar vazio, a sala fica sem senha.
-
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "SUA_API_KEY") {
-      showMenuError("Você ainda precisa colocar as configurações reais do Firebase no código.");
+    if(!roomName){
+      alert("Digite o nome da sala.");
       return false;
     }
 
     return true;
   }
+   function spawnPosition(index, team = "blue"){
+    if(team === "blue"){
+      return { x:230, y:MAP_H / 2 - 90 + index * 70 };
+    }
 
-  function roomRef() {
-    return ref(db, `rooms/${roomName}`);
-  }
+    if(team === "red"){
+      return { x:MAP_W - 230, y:MAP_H / 2 - 90 + index * 70 };
+    }
 
-  function playerRef() {
-    return ref(db, `rooms/${roomName}/players/${playerId}`);
-  }
-
-  function bulletRef(id) {
-    return ref(db, `rooms/${roomName}/bullets/${id}`);
-  }
-
-  function spawnPosition(index) {
     const spawns = [
-      { x: 180, y: 180 },
-      { x: MAP_W - 180, y: 180 },
-      { x: 180, y: MAP_H - 180 },
-      { x: MAP_W - 180, y: MAP_H - 180 }
+      { x:180, y:180 },
+      { x:MAP_W - 180, y:180 },
+      { x:180, y:MAP_H - 180 },
+      { x:MAP_W - 180, y:MAP_H - 180 }
     ];
+
     return spawns[index % spawns.length];
   }
 
-  async function createRoom() {
-    try {
-      if (!getInputs()) return;
+  async function createRoom(){
+    try{
+      if(!getInputs()) return;
 
       const snap = await get(roomRef());
-      if (snap.exists()) {
+
+      if(snap.exists()){
         const oldRoom = snap.val();
         const oldPlayers = oldRoom.players ? Object.keys(oldRoom.players).length : 0;
-
-        // Se a sala estiver vazia OU o host antigo não existir mais, recria.
         const hostStillExists = oldRoom.players && oldRoom.players[oldRoom.host];
 
-        if (oldPlayers === 0 || !hostStillExists) {
+        if(oldPlayers === 0 || !hostStillExists){
           await remove(roomRef());
-        } else {
-          showMenuError("Essa sala já existe. Use outro nome ou entre nela.");
+        }else{
+          alert("Essa sala já existe. Use outro nome ou entre nela.");
           return;
         }
       }
@@ -950,7 +1299,7 @@
       isHost = true;
 
       await set(roomRef(), {
-        password: roomPassword,
+        password: roomPassword || "",
         host: playerId,
         status: "lobby",
         maxPlayers: maxPlayersSelected,
@@ -975,79 +1324,101 @@
           captureFlashX: 0,
           captureFlashY: 0,
           captureFlashColor: "",
-          soundEvent: { type: "", by: "", at: 0 },
+          soundEvent: { type:"", by:"", x:0, y:0, at:0 },
           flags: {
-            blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
-            red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
+            blue: {
+              team:"blue",
+              x:170,
+              y:MAP_H / 2,
+              homeX:170,
+              homeY:MAP_H / 2,
+              carriedBy:"",
+              atHome:true
+            },
+            red: {
+              team:"red",
+              x:MAP_W - 170,
+              y:MAP_H / 2,
+              homeX:MAP_W - 170,
+              homeY:MAP_H / 2,
+              carriedBy:"",
+              atHome:true
+            }
           }
         }
       });
 
       await addPlayerToRoom();
 
-      // Se o criador/host fechar o navegador ou cair, a sala inteira fecha.
       onDisconnect(roomRef()).remove();
 
       openLobby();
-    } catch (erro) {
-      console.error(erro);
-      showMenuError("Erro ao criar sala. Confira o Firebase e as Rules do Realtime Database.");
+
+    }catch(e){
+      console.error(e);
+      alert("Erro ao criar sala. Confira Firebase/Rules.");
     }
   }
 
-  async function joinRoom() {
-    try {
-      if (!getInputs()) return;
+  async function joinRoom(){
+    try{
+      if(!getInputs()) return;
 
       const snap = await get(roomRef());
-      if (!snap.exists()) {
-        showMenuError("Sala não encontrada.");
+
+      if(!snap.exists()){
+        alert("Sala não encontrada.");
         return;
       }
 
       const room = snap.val();
-      if ((room.password || "") !== roomPassword) {
-        showMenuError("Senha incorreta.");
+
+      if((room.password || "") !== roomPassword){
+        alert("Senha incorreta.");
         return;
       }
 
       const currentPlayers = room.players ? Object.keys(room.players).length : 0;
       const maxPlayers = room.maxPlayers || 4;
 
-      if (currentPlayers >= maxPlayers && !room.players?.[playerId]) {
-        showMenuError(`Sala cheia. O limite dessa sala é ${maxPlayers} jogador(es).`);
+      if(currentPlayers >= maxPlayers && !room.players?.[playerId]){
+        alert(`Sala cheia. Limite: ${maxPlayers}.`);
         return;
       }
 
-      if (room.status === "playing") {
-        showMenuError("Essa partida já começou.");
+      if(room.status === "playing"){
+        alert("Essa partida já começou.");
         return;
       }
 
       isHost = room.host === playerId;
+
       await addPlayerToRoom();
+
       openLobby();
-    } catch (erro) {
-      console.error(erro);
-      showMenuError("Erro ao entrar na sala. Confira o Firebase e as Rules do Realtime Database.");
+
+    }catch(e){
+      console.error(e);
+      alert("Erro ao entrar na sala.");
     }
   }
 
-  async function addPlayerToRoom() {
+  async function addPlayerToRoom(){
     const snap = await get(ref(db, `rooms/${roomName}/players`));
     const playersNow = snap.exists() ? snap.val() : {};
     const count = Object.keys(playersNow).length;
-    const pos = spawnPosition(count);
 
     let blueCount = 0;
     let redCount = 0;
+
     Object.values(playersNow).forEach(p => {
-      if (p.team === "blue") blueCount++;
-      if (p.team === "red") redCount++;
+      if(p.team === "blue") blueCount++;
+      if(p.team === "red") redCount++;
     });
 
     const team = blueCount <= redCount ? "blue" : "red";
     const teamColor = team === "blue" ? "#35a7ff" : "#ff4d4d";
+    const pos = spawnPosition(count, team);
 
     await set(playerRef(), {
       id: playerId,
@@ -1059,8 +1430,9 @@
       team,
       hasFlag: "",
       respawnAt: 0,
+      explodingUntil: 0,
       respawnsLeft: 3,
-      flashlight: true,
+      flashlight: currentMapType === "noturna",
       color: teamColor,
       alive: true,
       ready: true,
@@ -1070,64 +1442,19 @@
     onDisconnect(playerRef()).remove();
   }
 
-  function startPublicRoomsList() {
-    if (publicRoomsStarted) return;
-    publicRoomsStarted = true;
-
-    const listEl = document.getElementById("publicRoomsList");
-
-    onValue(ref(db, "rooms"), snap => {
-      if (!listEl) return;
-
-      if (!snap.exists()) {
-        listEl.innerHTML = `<p class="small">Nenhuma sala online.</p>`;
-        return;
-      }
-
-      const rooms = snap.val();
-      const cards = [];
-
-      for (const [name, room] of Object.entries(rooms)) {
-        const playersCount = room.players ? Object.keys(room.players).length : 0;
-        const maxPlayers = room.maxPlayers || 4;
-        const status = room.status || "lobby";
-        const mapName = (room.mapName || "Mapa").slice(0, 8);
-        const hostStillExists = room.players && room.players[room.host];
-
-        if (playersCount <= 0 || !hostStillExists) continue;
-        if (status !== "lobby") continue;
-
-        cards.push(`
-          <div class="room-card">
-            <div>
-              <div class="room-card-title">${name}</div>
-              <div class="room-card-info">${playersCount}/${maxPlayers} players | Mapa: ${mapName}</div>
-            </div>
-            <button type="button" onclick="selectPublicRoom('${name.replace(/'/g, "\'")}')">Selecionar</button>
-          </div>
-        `);
-      }
-
-      listEl.innerHTML = cards.length ? cards.join("") : `<p class="small">Nenhuma sala disponível.</p>`;
-    });
-  }
-
-  function selectPublicRoom(name) {
-    document.getElementById("roomInput").value = name;
-    showMenuError("Sala selecionada. Digite a senha e clique em Entrar na sala.");
-  }
-
-  function openLobby() {
+  function openLobby(){
     menu.classList.add("hide");
     lobby.classList.remove("hide");
+
     lobbyRoomName.textContent = roomName;
     hudRoom.textContent = roomName;
+
     listenRoom();
   }
 
-  function listenRoom() {
+  function listenRoom(){
     onValue(roomRef(), snap => {
-      if (!snap.exists()) {
+      if(!snap.exists()){
         gameStarted = false;
         players = {};
         bullets = {};
@@ -1139,56 +1466,57 @@
         hud.classList.add("hide");
         playersBox.classList.add("hide");
 
-        if (auth.currentUser && auth.currentUser.emailVerified) {
+        if(auth.currentUser && auth.currentUser.emailVerified){
           menu.classList.remove("hide");
           authScreen.classList.add("hide");
-          showMenuError("O criador da sala saiu. A sala foi encerrada.");
-        } else {
+          alert("O criador da sala saiu. A sala foi encerrada.");
+        }else{
           menu.classList.add("hide");
           authScreen.classList.remove("hide");
         }
+
         return;
       }
 
       const room = snap.val();
+
       players = room.players || {};
       bullets = room.bullets || {};
+      gameStarted = room.status === "playing";
+      isHost = room.host === playerId;
+      currentMapType = room.mapType || "destruicao";
+      roomGame = room.game || null;
 
-      // Mantém o jogador local sincronizado com vida/morte/lanterna/respawn do Firebase.
-      // Isso evita continuar andando/atirando depois de morrer.
-      if (players[playerId]) {
+      handleSoundEvent(roomGame);
+
+      if(players[playerId]){
         const serverMe = players[playerId];
 
-        if (!localPlayer) {
+        if(!localPlayer){
           localPlayer = { ...serverMe };
-        } else {
+        }else{
           localPlayer.hp = serverMe.hp;
           localPlayer.alive = serverMe.alive;
           localPlayer.respawnAt = serverMe.respawnAt || 0;
+          localPlayer.explodingUntil = serverMe.explodingUntil || 0;
           localPlayer.respawnsLeft = serverMe.respawnsLeft ?? 3;
           localPlayer.hasFlag = serverMe.hasFlag || "";
           localPlayer.flashlight = serverMe.flashlight || false;
           localPlayer.team = serverMe.team;
           localPlayer.color = serverMe.color;
 
-          // Quando morrer ou respawnar, usa a posição oficial do servidor.
-          if (!serverMe.alive || serverMe.respawnAt === 0) {
+          if(!serverMe.alive || serverMe.respawnAt === 0){
             localPlayer.x = serverMe.x;
             localPlayer.y = serverMe.y;
             localPlayer.angle = serverMe.angle || localPlayer.angle || 0;
           }
         }
       }
-      gameStarted = room.status === "playing";
-      isHost = room.host === playerId;
-      currentMapType = room.mapType || "destruicao";
-      roomGame = room.game || null;
-      handleSoundEvent(roomGame);
 
       renderLobby(room);
       renderPlayersBox();
 
-      if (gameStarted) {
+      if(gameStarted){
         lobby.classList.add("hide");
         hud.classList.remove("hide");
         playersBox.classList.remove("hide");
@@ -1196,60 +1524,72 @@
     });
   }
 
-  function renderLobby(room) {
+  function renderLobby(room){
     const list = Object.values(room.players || {});
-
-    const lobbyMapTitle = document.getElementById("lobbyMapTitle");
-    const lobbyMapPreview = document.getElementById("lobbyMapPreview");
-    const selectedMap = mapOptions.find(m => m.type === (room.mapType || "destruicao")) || mapOptions[0];
-
-    lobbyMapTitle.textContent = (room.mapName || selectedMap.name).slice(0, 8);
-    lobbyMapPreview.className = `lobby-map-preview ${room.mapCss || selectedMap.css}`;
-    lobbyPlayers.innerHTML = `<p>Jogadores: ${list.length}/${room.maxPlayers || 4}</p>` + list.map(p => `
-      <div style="padding:6px;border-bottom:1px solid #333;color:${p.color}">
-        ${p.nickname} ${room.host === p.id ? "👑 Host" : ""}
-      </div>
-    `).join("");
-
     const mode = room.gameMode || room.game?.mode || "normal";
     const minPlayers = mode === "normal" ? 1 : 2;
 
+    const selectedMap = mapOptions.find(m => m.type === (room.mapType || "destruicao")) || mapOptions[0];
+
+    document.getElementById("lobbyMapTitle").textContent =
+      (room.mapName || selectedMap.name).slice(0,8);
+
+    document.getElementById("lobbyMapPreview").className =
+      `lobby-map-preview ${room.mapCss || selectedMap.css}`;
+
+    lobbyPlayers.innerHTML =
+      `<p>Jogadores: ${list.length}/${room.maxPlayers || 4}</p>` +
+      list.map(p => `
+        <div style="padding:6px;border-bottom:1px solid #333;color:${p.color}">
+          ${p.nickname} ${p.team === "blue" ? "🔵" : "🔴"}
+          ${room.host === p.id ? " 👑 Host" : ""}
+        </div>
+      `).join("");
+
     startBtn.disabled = !isHost || list.length < minPlayers;
 
-    if (!isHost) lobbyMsg.textContent = "Aguardando o host iniciar a partida.";
-    else if (list.length < minPlayers) {
+    if(!isHost){
+      lobbyMsg.textContent = "Aguardando o host iniciar.";
+    }else if(list.length < minPlayers){
       lobbyMsg.textContent = mode === "normal"
         ? "Modo Normal pode iniciar com 1 jogador."
-        : "Precisa de pelo menos 2 jogadores para iniciar.";
-    } else {
+        : "Modo de batalha precisa de 2 jogadores.";
+    }else{
       lobbyMsg.textContent = "Pronto para iniciar.";
     }
   }
 
-  function renderPlayersBox() {
+  function renderPlayersBox(){
     const list = Object.values(players);
-    playersBox.innerHTML = "<b>Players</b><br>" + list.map(p => `
-      <div style="color:${p.color}">${p.nickname}: ${p.hp} HP | ${p.kills || 0} K</div>
-    `).join("");
+
+    playersBox.innerHTML =
+      "<b>Players</b><br>" +
+      list.map(p => `
+        <div style="color:${p.color}">
+          ${p.nickname}: ${p.hp} HP | ${p.kills || 0} K
+          ${p.alive ? "" : "☠️"}
+        </div>
+      `).join("");
   }
 
-  async function startGame() {
+  async function startGame(){
     const snap = await get(ref(db, `rooms/${roomName}/players`));
     const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+
     const roomSnap = await get(roomRef());
     const room = roomSnap.val();
+
     const maxPlayers = room.maxPlayers || 4;
     const mode = room.gameMode || room.game?.mode || "normal";
 
-    if (!isHost) {
+    if(!isHost){
       alert("Apenas o dono da sala pode iniciar.");
       return;
     }
 
-    // Modo normal pode iniciar sozinho.
-    if (mode === "normal") {
-      if (count < 1) {
-        alert("Precisa de pelo menos 1 jogador para iniciar.");
+    if(mode === "normal"){
+      if(count < 1){
+        alert("Precisa de pelo menos 1 jogador.");
         return;
       }
 
@@ -1259,17 +1599,12 @@
         "game/mode": "normal",
         "game/winner": ""
       });
+
       return;
     }
 
-    // Modos de batalha precisam de 2 ou mais.
-    if (maxPlayers === 1) {
-      alert("Modo de batalha precisa de pelo menos 2 jogadores. Use modo Normal para jogar sozinho.");
-      return;
-    }
-
-    if (count < 2) {
-      alert("Modo de batalha não pode iniciar com apenas 1 jogador.");
+    if(maxPlayers === 1 || count < 2){
+      alert("Modo de batalha precisa de 2 jogadores ou mais.");
       return;
     }
 
@@ -1300,212 +1635,167 @@
     });
   }
 
-  async function leaveRoom() {
-    if (isHost) {
+  async function leaveRoom(){
+    if(isHost){
       await remove(roomRef());
       location.reload();
       return;
     }
 
     await remove(playerRef());
-
-    const snap = await get(ref(db, `rooms/${roomName}/players`));
-    const remaining = snap.exists() ? Object.keys(snap.val()).length : 0;
-
-    if (remaining === 0) {
-      await remove(roomRef());
-    }
-
     location.reload();
   }
+   function startPublicRoomsList(){
+    let publicRoomsStarted = false;
 
-  window.addEventListener("beforeunload", () => {
-    // Não desloga ao atualizar a página. A sessão é do tipo browserSessionPersistence:
-    // atualiza normal, mas ao fechar a aba/navegador a sessão não fica permanente.
-    if (roomName && isHost) {
-      remove(roomRef()).catch(console.error);
-    } else if (roomName) {
-      remove(playerRef()).catch(console.error);
-    }
-  });
+    if(publicRoomsStarted) return;
+    publicRoomsStarted = true;
 
-  function getMe() {
-    return localPlayer || players[playerId];
-  }
+    const listEl = document.getElementById("publicRoomsList");
 
-  async function toggleFlashlight() {
-    const me = getMe();
+    onValue(ref(db,"rooms"), snap => {
+      if(!listEl) return;
 
-    // Lanterna só existe no mapa Noturno.
-    if (currentMapType !== "noturna") return;
-    if (!gameStarted || !me || !me.alive) return;
-
-    // Se o tanque morreu, força desligar.
-    if ((me.hp || 0) <= 0) {
-      if (localPlayer) localPlayer.flashlight = false;
-      if (players[playerId]) players[playerId].flashlight = false;
-      await update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
-      return;
-    }
-
-    const next = !me.flashlight;
-    playSound("flashlight");
-
-    await update(ref(db, `rooms/${roomName}/players/${playerId}`), {
-      flashlight: next
-    }).catch(console.error);
-
-    if (localPlayer) localPlayer.flashlight = next;
-    if (players[playerId]) players[playerId].flashlight = next;
-  }
-
-  async function updateMe(data) {
-    if (!roomName || !players[playerId]) return;
-    await update(playerRef(), data);
-  }
-
-  function getCamera(me) {
-    let camX = me.x - canvas.width / 2;
-    let camY = me.y - canvas.height / 2;
-
-    camX = Math.max(0, Math.min(MAP_W - canvas.width, camX));
-    camY = Math.max(0, Math.min(MAP_H - canvas.height, camY));
-
-    return { camX, camY };
-  }
-
-  function worldMouse(me) {
-    const { camX, camY } = getCamera(me);
-    return {
-      x: mouse.x + camX,
-      y: mouse.y + camY
-    };
-  }
-
-  async function shoot(me) {
-    const serverMe = players[playerId];
-    if (!gameStarted || !me || !serverMe || !serverMe.alive || (serverMe.hp || 0) <= 0) return;
-
-    const now = performance.now();
-
-    if (now < reloadingUntil) return;
-
-    if (shotsInClip >= 2) {
-      reloadingUntil = now + 2000;
-      return;
-    }
-
-    if (now - lastShot < 180) return;
-    lastShot = now;
-    shotsInClip++;
-
-    if (shotsInClip >= 2) {
-      reloadingUntil = now + 2000;
-      setTimeout(() => {
-        shotsInClip = 0;
-        reloadingUntil = 0;
-      }, 2000);
-    }
-
-    const wm = worldMouse(me);
-    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
-    const id = crypto.randomUUID();
-
-    playSound("shot");
-
-    update(ref(db), {
-      [`rooms/${roomName}/game/soundEvent/type`]: "shot",
-      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
-      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
-    }).catch(console.error);
-
-    set(bulletRef(id), {
-      id,
-      owner: playerId,
-      x: me.x + Math.cos(angle) * 38,
-      y: me.y + Math.sin(angle) * 38,
-      vx: Math.cos(angle) * 18,
-      vy: Math.sin(angle) * 18,
-      created: Date.now(),
-      damage: 20
-    }).catch(console.error);
-  }
-
-  function updateGame() {
-    const me = getMe();
-    if (!gameStarted || !me) return;
-
-    // Se morreu, não pode andar, mirar, atirar nem manter lanterna ligada.
-    if (!me.alive || (me.hp || 0) <= 0) {
-      mouse.clicked = false;
-      mouse.down = false;
-      const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
-      hudHp.textContent = (me.respawnsLeft || 0) > 0 ? `Respawn ${respawnLeft}s` : "Sem respawn";
-
-      if (me.flashlight) {
-        update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
-        if (localPlayer) localPlayer.flashlight = false;
-        if (players[playerId]) players[playerId].flashlight = false;
+      if(!snap.exists()){
+        listEl.innerHTML = `<p class="small">Nenhuma sala online.</p>`;
+        return;
       }
 
-      if (respawnLeft > 0 && respawnLeft !== lastRespawnBeep) {
+      const rooms = snap.val();
+      const cards = [];
+
+      for(const [name, room] of Object.entries(rooms)){
+        const playersCount = room.players ? Object.keys(room.players).length : 0;
+        const maxPlayers = room.maxPlayers || 4;
+        const status = room.status || "lobby";
+        const mapName = (room.mapName || "Mapa").slice(0,8);
+        const mode = room.gameMode === "ctf" ? "Bandeira" : "Normal";
+        const hostStillExists = room.players && room.players[room.host];
+
+        if(playersCount <= 0 || !hostStillExists) continue;
+        if(status !== "lobby") continue;
+
+        cards.push(`
+          <div class="room-card">
+            <div>
+              <div class="room-card-title">${name}</div>
+              <div class="room-card-info">
+                ${playersCount}/${maxPlayers} players | ${mode} | Mapa: ${mapName}
+              </div>
+            </div>
+            <button type="button" onclick="selectPublicRoom('${name.replace(/'/g,"\\'")}')">
+              Selecionar
+            </button>
+          </div>
+        `);
+      }
+
+      listEl.innerHTML = cards.length
+        ? cards.join("")
+        : `<p class="small">Nenhuma sala disponível.</p>`;
+    });
+  }
+
+  function selectPublicRoom(name){
+    document.getElementById("roomInput").value = name;
+    alert("Sala selecionada. Se ela tiver senha, digite a senha e clique em Entrar.");
+  }
+
+  function updateGame(){
+    const me = getMe();
+
+    if(!gameStarted || !me) return;
+
+    if(!me.alive || (me.hp || 0) <= 0){
+      mouse.clicked = false;
+      mouse.down = false;
+
+      const explodingLeft = Math.max(0, (me.explodingUntil || 0) - Date.now());
+
+      if(explodingLeft > 0){
+        hudHp.textContent = "Explodindo...";
+        if(isHost) hostGameLoop();
+        return;
+      }
+
+      const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
+      hudHp.textContent = (me.respawnsLeft || 0) > 0
+        ? `Respawn ${respawnLeft}s`
+        : "Sem respawn";
+
+      if(respawnLeft > 0 && respawnLeft !== lastRespawnBeep){
         lastRespawnBeep = respawnLeft;
         playSound("spawnCountdown");
       }
 
-      if (isHost) hostGameLoop();
+      if(me.flashlight){
+        update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+          flashlight:false
+        }).catch(console.error);
+      }
+
+      if(isHost) hostGameLoop();
       return;
     }
 
-    if (!localPlayer) localPlayer = { ...me };
+    if(!localPlayer) localPlayer = { ...me };
 
-    // Garante que dados críticos venham do servidor, não do estado local antigo.
-    if (players[playerId]) {
-      localPlayer.hp = players[playerId].hp;
-      localPlayer.alive = players[playerId].alive;
-      localPlayer.respawnAt = players[playerId].respawnAt || 0;
-      localPlayer.respawnsLeft = players[playerId].respawnsLeft ?? 3;
-      localPlayer.flashlight = players[playerId].flashlight || false;
-      localPlayer.hasFlag = players[playerId].hasFlag || "";
+    const serverMe = players[playerId];
+
+    if(serverMe){
+      localPlayer.hp = serverMe.hp;
+      localPlayer.alive = serverMe.alive;
+      localPlayer.respawnAt = serverMe.respawnAt || 0;
+      localPlayer.explodingUntil = serverMe.explodingUntil || 0;
+      localPlayer.respawnsLeft = serverMe.respawnsLeft ?? 3;
+      localPlayer.flashlight = serverMe.flashlight || false;
+      localPlayer.hasFlag = serverMe.hasFlag || "";
     }
 
-    // A lanterna só desliga automaticamente quando o tanque morrer.
-    if ((me.hp || 0) <= 0 && me.flashlight) {
-      update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
-      if (localPlayer) localPlayer.flashlight = false;
-      if (players[playerId]) players[playerId].flashlight = false;
+    if((me.hp || 0) <= 0 && me.flashlight){
+      update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+        flashlight:false
+      }).catch(console.error);
+
+      if(localPlayer) localPlayer.flashlight = false;
+      if(players[playerId]) players[playerId].flashlight = false;
     }
 
     let nx = localPlayer.x;
     let ny = localPlayer.y;
+
     const speed = getMoveSpeed(me);
 
     let tryX = nx;
     let tryY = ny;
 
-    if (keys["w"]) tryY -= speed;
-    if (keys["s"]) tryY += speed;
-    if (keys["a"]) tryX -= speed;
-    if (keys["d"]) tryX += speed;
+    if(keys.w) tryY -= speed;
+    if(keys.s) tryY += speed;
+    if(keys.a) tryX -= speed;
+    if(keys.d) tryX += speed;
 
     tryX = Math.max(30, Math.min(MAP_W - 30, tryX));
     tryY = Math.max(30, Math.min(MAP_H - 30, tryY));
 
-    // Colisão separada por eixo para o tanque deslizar na parede.
-    if (!collidesWithObstacle(tryX, ny) && !collidesWithTank(tryX, ny)) {
+    if(!collidesWithObstacle(tryX, ny) && !collidesWithTank(tryX, ny)){
       nx = tryX;
     }
 
-    if (!collidesWithObstacle(nx, tryY) && !collidesWithTank(nx, tryY)) {
+    if(!collidesWithObstacle(nx, tryY) && !collidesWithTank(nx, tryY)){
       ny = tryY;
     }
-
-    const wm = worldMouse(me);
-    const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
 
     const pushed = pushTankOutOfMovingObstacles(nx, ny);
     nx = pushed.x;
     ny = pushed.y;
+
+    const wm = worldMouse({
+      ...me,
+      x:nx,
+      y:ny
+    });
+
+    const angle = Math.atan2(wm.y - ny, wm.x - nx);
 
     localPlayer.x = nx;
     localPlayer.y = ny;
@@ -1513,94 +1803,183 @@
 
     players[playerId] = {
       ...players[playerId],
-      x: nx,
-      y: ny,
+      x:nx,
+      y:ny,
       angle
     };
 
     hudHp.textContent = `${me.hp}/300`;
 
-    if (hudAmmo) {
+    if(hudAmmo){
       const nowAmmo = performance.now();
-      if (nowAmmo < reloadingUntil) {
+
+      if(nowAmmo < reloadingUntil){
         const left = Math.ceil((reloadingUntil - nowAmmo) / 1000);
         hudAmmo.textContent = `Recarregando ${left}s`;
-      } else {
+      }else{
         hudAmmo.textContent = `${2 - shotsInClip}/2`;
       }
     }
 
     const now = performance.now();
-    if (now - lastPlayerSync > 65) {
+
+    if(now - lastPlayerSync > 65){
       lastPlayerSync = now;
-      updateMe({ x: nx, y: ny, angle });
+
+      update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+        x:nx,
+        y:ny,
+        angle
+      }).catch(console.error);
     }
 
-    if (mouse.clicked) {
+    if(mouse.clicked){
       mouse.clicked = false;
-      shoot({ ...me, x: nx, y: ny, angle });
+      shoot({
+        ...me,
+        x:nx,
+        y:ny,
+        angle
+      });
     }
 
     const bulletNow = performance.now();
-    if (isHost && bulletNow - lastBulletSync > 45) {
+
+    if(isHost && bulletNow - lastBulletSync > 45){
       lastBulletSync = bulletNow;
       hostUpdateBullets();
       hostGameLoop();
     }
   }
 
-  async function hostUpdateBullets() {
+  function worldMouse(me){
+    const cam = getCamera(me);
+
+    return {
+      x:mouse.x + cam.camX,
+      y:mouse.y + cam.camY
+    };
+  }
+
+  async function shoot(me){
+    const serverMe = players[playerId];
+
+    if(!gameStarted || !me || !serverMe || !serverMe.alive || (serverMe.hp || 0) <= 0){
+      return;
+    }
+
+    const now = performance.now();
+
+    if(now < reloadingUntil) return;
+
+    if(shotsInClip >= 2){
+      reloadingUntil = now + 2000;
+      return;
+    }
+
+    if(now - lastShot < 180) return;
+
+    lastShot = now;
+    shotsInClip++;
+
+    if(shotsInClip >= 2){
+      reloadingUntil = now + 2000;
+
+      setTimeout(() => {
+        shotsInClip = 0;
+        reloadingUntil = 0;
+      }, 2000);
+    }
+
+    const angle = me.angle || 0;
+    const id = crypto.randomUUID();
+
+    playSound("shot");
+
+    update(ref(db), {
+      [`rooms/${roomName}/game/soundEvent/type`]:"shot",
+      [`rooms/${roomName}/game/soundEvent/by`]:playerId,
+      [`rooms/${roomName}/game/soundEvent/x`]:me.x,
+      [`rooms/${roomName}/game/soundEvent/y`]:me.y,
+      [`rooms/${roomName}/game/soundEvent/at`]:Date.now()
+    }).catch(console.error);
+
+    set(bulletRef(id), {
+      id,
+      owner:playerId,
+      x:me.x + Math.cos(angle) * 38,
+      y:me.y + Math.sin(angle) * 38,
+      vx:Math.cos(angle) * 18,
+      vy:Math.sin(angle) * 18,
+      created:Date.now(),
+      damage:20
+    }).catch(console.error);
+  }
+
+  async function hostUpdateBullets(){
     const now = Date.now();
     const updates = {};
 
-    for (const [id, b] of Object.entries(bullets)) {
+    for(const [id,b] of Object.entries(bullets)){
       let bx = b.x + b.vx;
       let by = b.y + b.vy;
       let removeBullet = false;
 
-      if (bx < 0 || by < 0 || bx > MAP_W || by > MAP_H || now - b.created > 2500) {
+      if(bx < 0 || by < 0 || bx > MAP_W || by > MAP_H || now - b.created > 2500){
         removeBullet = true;
       }
 
-      // Tiro não atravessa obstáculos.
-      if (!removeBullet && collidesWithObstacle(bx, by, 6)) {
+      if(!removeBullet && collidesWithObstacle(bx, by, 6)){
         removeBullet = true;
       }
 
-      for (const [pid, p] of Object.entries(players)) {
-        if (pid === b.owner || !p.alive) continue;
+      for(const [pid,p] of Object.entries(players)){
+        if(pid === b.owner || !p.alive) continue;
 
         const dx = bx - p.x;
         const dy = by - p.y;
-        const dist = Math.hypot(dx, dy);
+        const dist = Math.hypot(dx,dy);
 
-        if (dist < 28) {
-          const newHp = Math.max(0, p.hp - b.damage);
+        if(dist < 28){
+          const newHp = Math.max(0, (p.hp || 0) - (b.damage || 20));
           const alive = newHp > 0;
 
           updates[`rooms/${roomName}/players/${pid}/hp`] = newHp;
           updates[`rooms/${roomName}/players/${pid}/alive`] = alive;
 
-          if (!alive) {
+          if(!alive){
             const left = Math.max(0, (p.respawnsLeft ?? 3) - 1);
+
             updates[`rooms/${roomName}/players/${pid}/respawnsLeft`] = left;
             updates[`rooms/${roomName}/players/${pid}/flashlight`] = false;
-            updates[`rooms/${roomName}/players/${pid}/respawnAt`] = left > 0 ? Date.now() + 3000 : 0;
+
+            // Explosão dura 1.8s. Respawn só acontece depois dela.
+            updates[`rooms/${roomName}/players/${pid}/explodingUntil`] = Date.now() + 1800;
+            updates[`rooms/${roomName}/players/${pid}/respawnAt`] = left > 0
+              ? Date.now() + 4800
+              : 0;
+
             updates[`rooms/${roomName}/game/soundEvent/type`] = "explosion";
+            updates[`rooms/${roomName}/game/soundEvent/by`] = pid;
+            updates[`rooms/${roomName}/game/soundEvent/x`] = p.x;
+            updates[`rooms/${roomName}/game/soundEvent/y`] = p.y;
             updates[`rooms/${roomName}/game/soundEvent/at`] = Date.now();
-            if (p.hasFlag) {
+
+            if(p.hasFlag){
               const flag = p.hasFlag;
               const hx = flag === "blue" ? 170 : MAP_W - 170;
+
               updates[`rooms/${roomName}/game/flags/${flag}/x`] = hx;
               updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
               updates[`rooms/${roomName}/game/flags/${flag}/carriedBy`] = "";
               updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
               updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             }
-          }
 
-          if (!alive && players[b.owner]) {
-            updates[`rooms/${roomName}/players/${b.owner}/kills`] = (players[b.owner].kills || 0) + 1;
+            if(players[b.owner]){
+              updates[`rooms/${roomName}/players/${b.owner}/kills`] =
+                (players[b.owner].kills || 0) + 1;
+            }
           }
 
           removeBullet = true;
@@ -1608,44 +1987,52 @@
         }
       }
 
-      if (removeBullet) {
+      if(removeBullet){
         updates[`rooms/${roomName}/bullets/${id}`] = null;
-      } else {
+      }else{
         updates[`rooms/${roomName}/bullets/${id}/x`] = bx;
         updates[`rooms/${roomName}/bullets/${id}/y`] = by;
       }
     }
 
-    if (Object.keys(updates).length > 0) {
+    if(Object.keys(updates).length > 0){
       await update(ref(db), updates);
     }
   }
 
-  async function hostGameLoop() {
-    if (!roomGame || roomGame.status !== "playing") return;
+  async function hostGameLoop(){
+    if(!roomGame || roomGame.status !== "playing") return;
 
     const now = Date.now();
     const updates = {};
 
-    if (roomGame.mode === "ctf" && roomGame.roundEndAt && now >= roomGame.roundEndAt) {
+    if(roomGame.mode === "ctf" && roomGame.roundEndAt && now >= roomGame.roundEndAt){
       const nextRound = (roomGame.round || 1) + 1;
       const maxRounds = roomGame.maxRounds || 3;
-      if (nextRound > maxRounds) {
+
+      if(nextRound > maxRounds){
         const blue = roomGame.blueScore || 0;
         const red = roomGame.redScore || 0;
+
         updates[`rooms/${roomName}/game/status`] = "ended";
-        updates[`rooms/${roomName}/game/winner`] = blue > red ? "AZUL" : red > blue ? "VERMELHO" : "EMPATE";
-      } else {
+        updates[`rooms/${roomName}/game/winner`] =
+          blue > red ? "AZUL" : red > blue ? "VERMELHO" : "EMPATE";
+
+      }else{
         updates[`rooms/${roomName}/game/round`] = nextRound;
         updates[`rooms/${roomName}/game/roundEndAt`] = now + 180000;
+
         resetFlagsUpdates(updates);
         resetPlayersForRound(updates);
       }
     }
 
-    for (const [pid, p] of Object.entries(players)) {
-      if (!p.alive && p.respawnAt && now >= p.respawnAt && (p.respawnsLeft || 0) > 0) {
-        const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 } : { x: MAP_W - 230, y: MAP_H / 2 };
+    for(const [pid,p] of Object.entries(players)){
+      if(!p.alive && p.respawnAt && now >= p.respawnAt && (p.respawnsLeft || 0) > 0){
+        const spawn = p.team === "blue"
+          ? { x:230, y:MAP_H / 2 }
+          : { x:MAP_W - 230, y:MAP_H / 2 };
+
         updates[`rooms/${roomName}/players/${pid}/alive`] = true;
         updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
         updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
@@ -1653,59 +2040,66 @@
         updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
         updates[`rooms/${roomName}/players/${pid}/flashlight`] = false;
         updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
+        updates[`rooms/${roomName}/players/${pid}/explodingUntil`] = 0;
       }
     }
 
-    if (roomGame.mode === "ctf" && roomGame.flags) {
-      for (const [pid, p] of Object.entries(players)) {
-        if (!p.alive) continue;
+    if(roomGame.mode === "ctf" && roomGame.flags){
+      for(const [pid,p] of Object.entries(players)){
+        if(!p.alive) continue;
+
         const enemyFlag = p.team === "blue" ? "red" : "blue";
         const ownFlag = p.team;
         const flagData = roomGame.flags[enemyFlag];
         const ownBase = roomGame.flags[ownFlag];
 
-        if (!p.hasFlag && flagData && !flagData.carriedBy) {
+        if(!p.hasFlag && flagData && !flagData.carriedBy){
           const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
 
-          // Recuperar a própria bandeira caso ela esteja fora da base.
-          if (flagData.team === p.team && !flagData.atHome && d < 48) {
-            resetOneFlagUpdates(updates, flagData.team);
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagReturn";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
-          }
-
-          if (d < 48) {
+          if(d < 48){
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
+
             updates[`rooms/${roomName}/game/soundEvent/type`] = "flagTake";
+            updates[`rooms/${roomName}/game/soundEvent/by`] = pid;
             updates[`rooms/${roomName}/game/soundEvent/at`] = now;
           }
         }
 
-        if (p.hasFlag && ownBase) {
+        if(p.hasFlag && ownBase){
           const dBase = Math.hypot(p.x - ownBase.homeX, p.y - ownBase.homeY);
-          if (dBase < 70) {
+
+          if(dBase < 70){
             const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
-            updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
+
+            updates[`rooms/${roomName}/game/${scoreKey}`] =
+              (roomGame[scoreKey] || 0) + 10;
+
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             updates[`rooms/${roomName}/game/captureFlash`] = now;
             updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
             updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
+
             updates[`rooms/${roomName}/game/soundEvent/type`] = "flagScore";
+            updates[`rooms/${roomName}/game/soundEvent/by`] = pid;
             updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+
             resetOneFlagUpdates(updates, p.hasFlag);
           }
         }
       }
     }
 
-    if (Object.keys(updates).length > 0) await update(ref(db), updates);
+    if(Object.keys(updates).length > 0){
+      await update(ref(db), updates);
+    }
   }
 
-  function resetOneFlagUpdates(updates, flag) {
+  function resetOneFlagUpdates(updates, flag){
     const x = flag === "blue" ? 170 : MAP_W - 170;
+
     updates[`rooms/${roomName}/game/flags/${flag}/x`] = x;
     updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
     updates[`rooms/${roomName}/game/flags/${flag}/homeX`] = x;
@@ -1714,39 +2108,44 @@
     updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
   }
 
-  function resetFlagsUpdates(updates) {
-    resetOneFlagUpdates(updates, "blue");
-    resetOneFlagUpdates(updates, "red");
+  function resetFlagsUpdates(updates){
+    resetOneFlagUpdates(updates,"blue");
+    resetOneFlagUpdates(updates,"red");
   }
 
-  function resetPlayersForRound(updates) {
+  function resetPlayersForRound(updates){
     let i = 0;
-    for (const [pid, p] of Object.entries(players)) {
-      const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 - 80 + i * 60 } : { x: MAP_W - 230, y: MAP_H / 2 - 80 + i * 60 };
+
+    for(const [pid,p] of Object.entries(players)){
+      const spawn = p.team === "blue"
+        ? { x:230, y:MAP_H / 2 - 80 + i * 60 }
+        : { x:MAP_W - 230, y:MAP_H / 2 - 80 + i * 60 };
+
       updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
       updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
       updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
       updates[`rooms/${roomName}/players/${pid}/alive`] = true;
       updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
-      updates[`rooms/${roomName}/players/${pid}/flashlight`] = true;
+      updates[`rooms/${roomName}/players/${pid}/flashlight`] = currentMapType === "noturna";
       updates[`rooms/${roomName}/players/${pid}/respawnsLeft`] = 3;
       updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
+      updates[`rooms/${roomName}/players/${pid}/explodingUntil`] = 0;
+
       i++;
     }
   }
-
-  function drawGrid(camX, camY) {
-    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+   function drawGrid(camX, camY){
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
     ctx.lineWidth = 1;
 
-    for (let x = 0; x <= MAP_W; x += 80) {
+    for(let x = 0; x < MAP_W; x += 100){
       ctx.beginPath();
       ctx.moveTo(x - camX, -camY);
       ctx.lineTo(x - camX, MAP_H - camY);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= MAP_H; y += 80) {
+    for(let y = 0; y < MAP_H; y += 100){
       ctx.beginPath();
       ctx.moveTo(-camX, y - camY);
       ctx.lineTo(MAP_W - camX, y - camY);
@@ -1754,148 +2153,19 @@
     }
   }
 
-  function rectCircleCollide(rect, cx, cy, radius) {
-    const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
-    const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
-    const dx = cx - closestX;
-    const dy = cy - closestY;
-    return (dx * dx + dy * dy) < radius * radius;
-  }
+  function drawMap(camX, camY){
+    const bg = currentMapType === "noturna"
+      ? "#010409"
+      : currentMapType === "agua"
+        ? "#2d3425"
+        : "#293626";
 
-  function collidesWithObstacle(x, y, radius = 28) {
-    for (const o of getObstacles()) {
-      if (o.type === "mud") continue;
-      if (rectCircleCollide(o, x, y, radius)) return true;
-    }
-    return false;
-  }
-
-  function collidesWithTank(x, y, radius = 34) {
-    for (const [pid, p] of Object.entries(players)) {
-      if (pid === playerId || !p.alive) continue;
-      const d = Math.hypot(x - p.x, y - p.y);
-      if (d < radius) return true;
-    }
-    return false;
-  }
-
-  function pushTankOutOfMovingObstacles(x, y, radius = 28) {
-    let px = x;
-    let py = y;
-
-    for (const o of getObstacles()) {
-      if (o.type !== "moving") continue;
-      if (!rectCircleCollide(o, px, py, radius)) continue;
-
-      const closestX = Math.max(o.x, Math.min(px, o.x + o.w));
-      const closestY = Math.max(o.y, Math.min(py, o.y + o.h));
-      let dx = px - closestX;
-      let dy = py - closestY;
-      let dist = Math.hypot(dx, dy);
-
-      // Se o centro do tanque ficou muito dentro do bloco,
-      // escolhe o lado mais perto para expulsar.
-      if (dist < 0.001) {
-        const left = Math.abs(px - o.x);
-        const right = Math.abs((o.x + o.w) - px);
-        const top = Math.abs(py - o.y);
-        const bottom = Math.abs((o.y + o.h) - py);
-        const min = Math.min(left, right, top, bottom);
-
-        if (min === left) { dx = -1; dy = 0; dist = 1; }
-        else if (min === right) { dx = 1; dy = 0; dist = 1; }
-        else if (min === top) { dx = 0; dy = -1; dist = 1; }
-        else { dx = 0; dy = 1; dist = 1; }
-      }
-
-      const overlap = radius - dist + 2;
-      if (overlap > 0) {
-        px += (dx / dist) * overlap;
-        py += (dy / dist) * overlap;
-      }
-    }
-
-    px = Math.max(30, Math.min(MAP_W - 30, px));
-    py = Math.max(30, Math.min(MAP_H - 30, py));
-
-    return { x: px, y: py };
-  }
-
-  function getMoveSpeed(me) {
-    let base = me.hasFlag ? 3 : 4;
-
-    for (const o of getObstacles()) {
-      if (o.type === "mud" && rectCircleCollide(o, me.x, me.y, 28)) {
-        base *= 0.55;
-      }
-    }
-
-    return base;
-  }
-
-  function getObstacles() {
-    if (currentMapType === "arvores") {
-      return [
-        { x: 420, y: 300, w: 90, h: 90, type: "tree" },
-        { x: 760, y: 520, w: 100, h: 100, type: "tree" },
-        { x: 1280, y: 350, w: 90, h: 90, type: "tree" },
-        { x: 1720, y: 760, w: 110, h: 110, type: "tree" },
-        { x: 980, y: 1120, w: 120, h: 100, type: "tree" }
-      ];
-    }
-
-    if (currentMapType === "agua") {
-      return [
-        { x: 430, y: 420, w: 360, h: 190, type: "water" },
-        { x: 1250, y: 900, w: 440, h: 230, type: "mud" },
-        { x: 1700, y: 300, w: 260, h: 180, type: "water" }
-      ];
-    }
-
-    if (currentMapType === "diferentes") {
-      return [
-        { x: 350, y: 350, w: 230, h: 90, type: "wall" },
-        { x: 850, y: 720, w: 300, h: 110, type: "mud" },
-        { x: 1500, y: 450, w: 220, h: 160, type: "water" },
-        { x: 1750, y: 1120, w: 130, h: 130, type: "tree" }
-      ];
-    }
-
-    if (currentMapType === "moveis") {
-      const t = Date.now() / 700;
-      return [
-        { x: 500 + Math.sin(t) * 170, y: 430, w: 260, h: 75, type: "moving" },
-        { x: 1200, y: 720 + Math.cos(t) * 150, w: 90, h: 300, type: "moving" },
-        { x: 1650 + Math.sin(t * 1.2) * 140, y: 1050, w: 300, h: 75, type: "moving" }
-      ];
-    }
-
-    if (currentMapType === "noturna") {
-      return [
-        { x: 450, y: 350, w: 260, h: 80, type: "neon" },
-        { x: 1000, y: 650, w: 100, h: 300, type: "neon" },
-        { x: 1650, y: 400, w: 320, h: 90, type: "neon" },
-        { x: 600, y: 1100, w: 420, h: 90, type: "neon" }
-      ];
-    }
-
-    return [
-      { x: 450, y: 350, w: 260, h: 80, type: "breakable" },
-      { x: 1000, y: 650, w: 100, h: 300, type: "breakable" },
-      { x: 1650, y: 400, w: 320, h: 90, type: "breakable" },
-      { x: 600, y: 1100, w: 420, h: 90, type: "breakable" },
-      { x: 1500, y: 1150, w: 120, h: 260, type: "breakable" }
-    ];
-  }
-
-  function drawMap(camX, camY) {
-    const bg = currentMapType === "noturna" ? "#010409" : currentMapType === "agua" ? "#2d3425" : "#293626";
     ctx.fillStyle = bg;
     ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
 
     drawGrid(camX, camY);
 
-    if (currentMapType === "noturna") {
+    if(currentMapType === "noturna"){
       ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
     }
@@ -1904,33 +2174,45 @@
     ctx.lineWidth = 8;
     ctx.strokeRect(-camX, -camY, MAP_W, MAP_H);
 
-    for (const o of getObstacles()) {
-      if (o.type === "tree") {
+    for(const o of getObstacles()){
+      if(o.type === "tree"){
         ctx.fillStyle = "#6b3f1d";
         ctx.fillRect(o.x + o.w / 2 - 8 - camX, o.y + o.h / 2 - 8 - camY, 16, 20);
+
         ctx.fillStyle = "#0b8f25";
         ctx.beginPath();
-        ctx.arc(o.x + o.w / 2 - camX, o.y + o.h / 2 - camY, Math.max(o.w, o.h) / 2, 0, Math.PI * 2);
+        ctx.arc(
+          o.x + o.w / 2 - camX,
+          o.y + o.h / 2 - camY,
+          Math.max(o.w, o.h) / 2,
+          0,
+          Math.PI * 2
+        );
         ctx.fill();
-      } else if (o.type === "water") {
+
+      }else if(o.type === "water"){
         ctx.fillStyle = "#1f8fd6";
         ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
-      } else if (o.type === "mud") {
+
+      }else if(o.type === "mud"){
         ctx.fillStyle = "#5b4a2b";
         ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
-      } else if (o.type === "moving") {
+
+      }else if(o.type === "moving"){
         ctx.fillStyle = "#c0c0c0";
         ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
         ctx.strokeStyle = "#ffcc00";
         ctx.lineWidth = 4;
         ctx.strokeRect(o.x - camX, o.y - camY, o.w, o.h);
-      } else if (o.type === "neon") {
+
+      }else if(o.type === "neon"){
         ctx.fillStyle = "#111827";
         ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
         ctx.strokeStyle = "#00ffff";
         ctx.lineWidth = 3;
         ctx.strokeRect(o.x - camX, o.y - camY, o.w, o.h);
-      } else {
+
+      }else{
         ctx.fillStyle = "#8a5a35";
         ctx.fillRect(o.x - camX, o.y - camY, o.w, o.h);
         ctx.strokeStyle = "#5c351e";
@@ -1940,7 +2222,9 @@
     }
   }
 
-  function drawTank(p, camX, camY) {
+  function drawTank(p, camX, camY){
+    if(!p.alive && p.explodingUntil && Date.now() < p.explodingUntil) return;
+
     const x = p.x - camX;
     const y = p.y - camY;
 
@@ -1960,80 +2244,158 @@
 
     ctx.restore();
 
-    ctx.fillStyle = "white";
-    ctx.font = "13px Arial";
-    ctx.textAlign = "center";
-    if (p.hasFlag) {
+    if(p.hasFlag){
       ctx.fillStyle = p.hasFlag === "blue" ? "#35a7ff" : "#ff4d4d";
       ctx.fillRect(x - 7, y - 62, 14, 28);
+
       ctx.fillStyle = "white";
       ctx.fillRect(x - 2, y - 62, 4, 38);
     }
 
-    ctx.fillText(`${p.nickname} ${p.team === "blue" ? "🔵" : p.team === "red" ? "🔴" : ""}`, x, y - 35);
+    ctx.fillStyle = "white";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      `${p.nickname} ${p.team === "blue" ? "🔵" : p.team === "red" ? "🔴" : ""}`,
+      x,
+      y - 35
+    );
 
     ctx.fillStyle = "red";
     ctx.fillRect(x - 24, y + 30, 48, 6);
+
     ctx.fillStyle = "lime";
     ctx.fillRect(x - 24, y + 30, 48 * ((p.hp || 0) / 300), 6);
   }
 
-  function drawBullet(b, camX, camY) {
+  function drawBullet(b, camX, camY){
     ctx.fillStyle = "#ffd93d";
     ctx.beginPath();
     ctx.arc(b.x - camX, b.y - camY, 5, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  function drawNightDarkness(camX, camY) {
-    if (currentMapType !== "noturna") return;
+  function drawExplosions(camX, camY){
+    const now = Date.now();
+
+    for(const [id, ex] of Object.entries(explosions)){
+      const age = now - ex.start;
+
+      if(age > 1800){
+        delete explosions[id];
+        continue;
+      }
+
+      const t = age / 1800;
+      const x = ex.x - camX;
+      const y = ex.y - camY;
+
+      ctx.save();
+      ctx.globalAlpha = 1 - t;
+
+      ctx.strokeStyle = "rgba(255,220,80,0.95)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(x, y, 25 + t * 95, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const fire = ctx.createRadialGradient(x, y, 5, x, y, 85 + t * 30);
+      fire.addColorStop(0, "rgba(255,255,180,1)");
+      fire.addColorStop(0.25, "rgba(255,140,0,0.95)");
+      fire.addColorStop(0.65, "rgba(190,25,0,0.55)");
+      fire.addColorStop(1, "rgba(0,0,0,0)");
+
+      ctx.fillStyle = fire;
+      ctx.beginPath();
+      ctx.arc(x, y, 78 + t * 25, 0, Math.PI * 2);
+      ctx.fill();
+
+      for(let i = 0; i < 18; i++){
+        const a = (Math.PI * 2 / 18) * i;
+        const dist = 22 + t * (85 + (i % 5) * 12);
+        const px = x + Math.cos(a) * dist;
+        const py = y + Math.sin(a) * dist;
+
+        ctx.fillStyle = i % 2 === 0 ? "#ffcc33" : "#555";
+        ctx.fillRect(px - 3, py - 3, 6, 6);
+      }
+
+      if(t > 0.45){
+        ctx.globalAlpha = (1 - t) * 0.7;
+        ctx.fillStyle = "rgba(90,90,90,0.75)";
+
+        for(let i = 0; i < 8; i++){
+          const a = i * 0.8;
+
+          ctx.beginPath();
+          ctx.arc(
+            x + Math.cos(a) * t * 45,
+            y + Math.sin(a) * t * 35,
+            18 + t * 28,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+    }
+  }
+
+  function drawNightDarkness(camX, camY){
+    if(currentMapType !== "noturna") return;
 
     nightCanvas.width = canvas.width;
     nightCanvas.height = canvas.height;
 
-    // Cria a camada escura por cima do mapa.
     nightCtx.clearRect(0, 0, nightCanvas.width, nightCanvas.height);
     nightCtx.fillStyle = "rgba(0,0,0,0.98)";
     nightCtx.fillRect(0, 0, nightCanvas.width, nightCanvas.height);
 
     const me = getMe();
 
-    // Cada jogador só clareia a própria tela.
-    if (me && me.alive && me.flashlight && (me.hp || 0) > 0) {
+    if(me && me.alive && me.flashlight && (me.hp || 0) > 0){
       const hp = me.hp || 0;
       let power = 1;
 
-      if (hp <= 150) power = 0.82;
+      if(hp <= 150) power = 0.82;
 
-    // Com 100 HP ou menos começa a piscar.
-    if (hp <= 100) {
-      const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
-      if (!blinkOn) {
-        power = 0;
-      } else {
-        power = 0.72;
+      if(hp <= 100){
+        const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
+
+        if(!blinkOn){
+          power = 0;
+        }else{
+          power = 0.72;
+        }
       }
-    }
 
-    // Com 40 HP ou menos a lanterna continua piscando, mas fica só um pouco mais fraca.
-    if (hp <= 40 && power > 0) {
-      power = 0.45;
-    }
+      if(hp <= 40 && power > 0){
+        power = 0.45;
+      }
 
-      if (power > 0) {
+      if(power > 0){
         const x = me.x - camX;
         const y = me.y - camY;
         const angle = me.angle || 0;
         const length = 340 * power;
         const width = 115 * power;
 
-        // Abre um buraco em formato de cone na camada escura.
         nightCtx.save();
         nightCtx.globalCompositeOperation = "destination-out";
         nightCtx.translate(x, y);
         nightCtx.rotate(angle);
 
-        const cone = nightCtx.createRadialGradient(35, 0, 4, length * 0.60, 0, length);
+        const cone = nightCtx.createRadialGradient(
+          35,
+          0,
+          4,
+          length * 0.60,
+          0,
+          length
+        );
+
         cone.addColorStop(0, "rgba(255,255,255,1)");
         cone.addColorStop(0.55, "rgba(255,255,255,0.75)");
         cone.addColorStop(1, "rgba(255,255,255,0)");
@@ -2046,10 +2408,10 @@
         nightCtx.closePath();
         nightCtx.fill();
 
-        // Pequeno círculo de visão ao redor do próprio tanque.
         const around = nightCtx.createRadialGradient(0, 0, 4, 0, 0, 42 * power);
         around.addColorStop(0, "rgba(255,255,255,0.95)");
         around.addColorStop(1, "rgba(255,255,255,0)");
+
         nightCtx.fillStyle = around;
         nightCtx.beginPath();
         nightCtx.arc(0, 0, 42 * power, 0, Math.PI * 2);
@@ -2057,30 +2419,30 @@
 
         nightCtx.restore();
 
-        // Cor amarelada suave da lanterna, só na própria tela.
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.translate(x, y);
         ctx.rotate(angle);
         ctx.fillStyle = `rgba(255,238,150,${0.32 * power})`;
+
         ctx.beginPath();
         ctx.moveTo(10, 0);
         ctx.lineTo(length, -width);
         ctx.quadraticCurveTo(length + 55 * power, 0, length, width);
         ctx.closePath();
         ctx.fill();
+
         ctx.restore();
       }
     }
 
-    // Sempre desenha a escuridão. Quando a lanterna pisca, só o cone some.
     ctx.drawImage(nightCanvas, 0, 0);
   }
 
-  function drawFlagsAndBases(camX, camY) {
-    if (!roomGame || roomGame.mode !== "ctf" || !roomGame.flags) return;
+  function drawFlagsAndBases(camX, camY){
+    if(!roomGame || roomGame.mode !== "ctf" || !roomGame.flags) return;
 
-    for (const color of ["blue", "red"]) {
+    for(const color of ["blue","red"]){
       const f = roomGame.flags[color];
       const baseColor = color === "blue" ? "#35a7ff" : "#ff4d4d";
       const bx = f.homeX - camX;
@@ -2090,70 +2452,80 @@
       ctx.strokeStyle = baseColor;
       ctx.lineWidth = 5;
       ctx.globalAlpha = 0.75;
+
       ctx.beginPath();
       ctx.arc(bx, by, 70, 0, Math.PI * 2);
       ctx.stroke();
+
       ctx.globalAlpha = 1;
 
-      if (!f.carriedBy) {
+      if(!f.carriedBy){
         ctx.fillStyle = baseColor;
         ctx.fillRect(f.x - camX - 8, f.y - camY - 35, 16, 35);
+
         ctx.fillStyle = "white";
         ctx.fillRect(f.x - camX - 2, f.y - camY - 35, 4, 45);
       }
+
       ctx.restore();
     }
 
     drawCaptureSwirl(camX, camY);
   }
 
-  function drawCaptureSwirl(camX, camY) {
-    if (!roomGame || !roomGame.captureFlash) return;
+  function drawCaptureSwirl(camX, camY){
+    if(!roomGame || !roomGame.captureFlash) return;
 
     const elapsed = Date.now() - roomGame.captureFlash;
-    if (elapsed > 1100) return;
+    if(elapsed > 1100) return;
 
     const progress = elapsed / 1100;
     const x = (roomGame.captureFlashX || 0) - camX;
     const y = (roomGame.captureFlashY || 0) - camY;
-    const color = roomGame.captureFlashColor === "blue" ? "53,167,255" : "255,77,77";
+    const color = roomGame.captureFlashColor === "blue"
+      ? "53,167,255"
+      : "255,77,77";
 
     ctx.save();
     ctx.globalAlpha = 1 - progress;
 
-    // brilho no chão
     const radius = 50 + progress * 45;
     const glow = ctx.createRadialGradient(x, y, 5, x, y, radius);
+
     glow.addColorStop(0, `rgba(${color},0.65)`);
     glow.addColorStop(0.55, `rgba(${color},0.22)`);
     glow.addColorStop(1, `rgba(${color},0)`);
+
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    // redemoinho subindo
     ctx.strokeStyle = `rgba(${color},0.95)`;
     ctx.lineWidth = 4;
-    for (let i = 0; i < 3; i++) {
+
+    for(let i = 0; i < 3; i++){
       ctx.beginPath();
-      for (let a = 0; a < Math.PI * 2.2; a += 0.18) {
+
+      for(let a = 0; a < Math.PI * 2.2; a += 0.18){
         const t = a + progress * Math.PI * 5 + i * 2.1;
         const r = 18 + a * 8;
         const px = x + Math.cos(t) * r;
         const py = y - progress * 90 + Math.sin(t) * r * 0.35 + i * 16;
-        if (a === 0) ctx.moveTo(px, py);
+
+        if(a === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       }
+
       ctx.stroke();
     }
 
-    // partículas subindo
-    for (let i = 0; i < 18; i++) {
+    for(let i = 0; i < 18; i++){
       const angle = i * 0.9 + progress * 5;
       const rr = 20 + (i % 6) * 8;
       const px = x + Math.cos(angle) * rr;
       const py = y + 30 - progress * 125 - (i % 4) * 8;
+
       ctx.fillStyle = `rgba(${color},${0.9 - progress})`;
       ctx.beginPath();
       ctx.arc(px, py, 3, 0, Math.PI * 2);
@@ -2163,8 +2535,9 @@
     ctx.restore();
   }
 
-  function drawGameHud() {
-    if (!roomGame || roomGame.mode !== "ctf") return;
+  function drawGameHud(){
+    if(!roomGame || roomGame.mode !== "ctf") return;
+
     const left = Math.max(0, Math.ceil(((roomGame.roundEndAt || 0) - Date.now()) / 1000));
     const min = String(Math.floor(left / 60)).padStart(2, "0");
     const sec = String(left % 60).padStart(2, "0");
@@ -2172,23 +2545,36 @@
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.fillRect(canvas.width / 2 - 220, 12, 440, 66);
+
     ctx.textAlign = "center";
     ctx.font = "bold 20px Arial";
+
     ctx.fillStyle = "#35a7ff";
     ctx.fillText(`AZUL ${roomGame.blueScore || 0}`, canvas.width / 2 - 125, 38);
+
     ctx.fillStyle = "white";
     ctx.fillText(`${min}:${sec}`, canvas.width / 2, 38);
+
     ctx.fillStyle = "#ff4d4d";
     ctx.fillText(`VERM ${roomGame.redScore || 0}`, canvas.width / 2 + 125, 38);
+
     ctx.font = "14px Arial";
     ctx.fillStyle = "#ddd";
-    ctx.fillText(`Rodada ${roomGame.round || 1}/${roomGame.maxRounds || 3} • Bandeira vale 10`, canvas.width / 2, 62);
+    ctx.fillText(
+      `Rodada ${roomGame.round || 1}/${roomGame.maxRounds || 3} • Bandeira vale 10`,
+      canvas.width / 2,
+      62
+    );
+
     ctx.restore();
   }
 
-  function drawRespawnCountdown() {
+  function drawRespawnCountdown(){
     const me = getMe();
-    if (!gameStarted || !me || me.alive) return;
+
+    if(!gameStarted || !me || me.alive) return;
+
+    if(me.explodingUntil && Date.now() < me.explodingUntil) return;
 
     const left = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
     const respawns = me.respawnsLeft || 0;
@@ -2199,76 +2585,101 @@
 
     ctx.translate(canvas.width / 2, canvas.height / 2);
 
-    if (respawns <= 0) {
+    if(respawns <= 0){
       ctx.textAlign = "center";
       ctx.fillStyle = "#ff5555";
       ctx.font = "bold 38px Arial";
       ctx.fillText("SEM RESPAWN", 0, -10);
+
       ctx.fillStyle = "white";
       ctx.font = "18px Arial";
       ctx.fillText("Você usou seus 3 respawns.", 0, 28);
+
       ctx.restore();
       return;
     }
 
     const rot = Date.now() / 260;
+
     ctx.rotate(rot);
     ctx.strokeStyle = "#2eff2e";
     ctx.lineWidth = 9;
+
     ctx.beginPath();
     ctx.arc(0, 0, 70, 0, Math.PI * 1.55);
     ctx.stroke();
 
     ctx.rotate(-rot);
+
     ctx.textAlign = "center";
     ctx.fillStyle = "white";
     ctx.font = "bold 58px Arial";
     ctx.fillText(left, 0, 20);
+
     ctx.font = "16px Arial";
     ctx.fillStyle = "#ddd";
     ctx.fillText(`Respawns restantes: ${respawns}`, 0, 100);
+
     ctx.restore();
   }
 
-  function drawVictoryScreen() {
-    if (!roomGame || roomGame.mode !== "ctf" || roomGame.status !== "ended") return;
+  function drawVictoryScreen(){
+    if(!roomGame || roomGame.mode !== "ctf" || roomGame.status !== "ended") return;
+
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.78)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.textAlign = "center";
+
     ctx.font = "bold 42px Arial";
     ctx.fillStyle = "white";
     ctx.fillText("FIM DE JOGO", canvas.width / 2, canvas.height / 2 - 70);
+
     ctx.font = "bold 34px Arial";
-    ctx.fillStyle = roomGame.winner === "AZUL" ? "#35a7ff" : roomGame.winner === "VERMELHO" ? "#ff4d4d" : "#fff";
+    ctx.fillStyle =
+      roomGame.winner === "AZUL"
+        ? "#35a7ff"
+        : roomGame.winner === "VERMELHO"
+          ? "#ff4d4d"
+          : "#fff";
+
     ctx.fillText(`VENCEDOR: ${roomGame.winner || "EMPATE"}`, canvas.width / 2, canvas.height / 2 - 20);
+
     ctx.font = "22px Arial";
     ctx.fillStyle = "#ddd";
-    ctx.fillText(`Azul ${roomGame.blueScore || 0} x ${roomGame.redScore || 0} Vermelho`, canvas.width / 2, canvas.height / 2 + 25);
+    ctx.fillText(
+      `Azul ${roomGame.blueScore || 0} x ${roomGame.redScore || 0} Vermelho`,
+      canvas.width / 2,
+      canvas.height / 2 + 25
+    );
+
     ctx.restore();
   }
 
-  function drawCrosshair() {
+  function drawCrosshair(){
     ctx.save();
     ctx.strokeStyle = "red";
     ctx.lineWidth = 3;
+
     ctx.beginPath();
     ctx.moveTo(mouse.x - 10, mouse.y - 10);
     ctx.lineTo(mouse.x + 10, mouse.y + 10);
     ctx.moveTo(mouse.x + 10, mouse.y - 10);
     ctx.lineTo(mouse.x - 10, mouse.y + 10);
     ctx.stroke();
+
     ctx.restore();
   }
 
-  function render() {
+  function render(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const me = getMe();
     let camX = 0;
     let camY = 0;
 
-    if (me) {
+    if(me){
       const cam = getCamera(me);
       camX = cam.camX;
       camY = cam.camY;
@@ -2277,9 +2688,16 @@
     drawMap(camX, camY);
 
     drawFlagsAndBases(camX, camY);
-    for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
-    for (const p of Object.values(players)) drawTank(p, camX, camY);
 
+    for(const b of Object.values(bullets)){
+      drawBullet(b, camX, camY);
+    }
+
+    for(const p of Object.values(players)){
+      drawTank(p, camX, camY);
+    }
+
+    drawExplosions(camX, camY);
     drawNightDarkness(camX, camY);
     drawGameHud();
     drawRespawnCountdown();
@@ -2289,12 +2707,18 @@
     requestAnimationFrame(render);
   }
 
+  window.addEventListener("beforeunload", () => {
+    if(roomName && isHost){
+      remove(roomRef()).catch(console.error);
+    }else if(roomName){
+      remove(playerRef()).catch(console.error);
+    }
+  });
+
   setInterval(updateGame, 1000 / 30);
   render();
-
   startPublicRoomsList();
-
-  // Começa sempre na primeira tela: login.
+  changeGameMode();
   showLogin();
 
   window.logoutAccount = logoutAccount;
@@ -2313,6 +2737,7 @@
   window.joinRoom = joinRoom;
   window.startGame = startGame;
   window.leaveRoom = leaveRoom;
+
 </script>
 </body>
 </html>
