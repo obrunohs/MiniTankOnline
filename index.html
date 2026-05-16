@@ -397,6 +397,7 @@
 
         <p class="small" style="margin-bottom:4px">Modo de batalha</p>
         <select id="gameModeSelect" onchange="changeGameMode()">
+          <option value="normal">Normal</option>
           <option value="ctf">Capturar Bandeira</option>
         </select>
 
@@ -563,7 +564,7 @@
   let lastShot = 0;
   let maxPlayersSelected = 4;
   let selectedRounds = 3;
-  let selectedGameMode = "ctf";
+  let selectedGameMode = "normal";
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
   let roomGame = null;
@@ -618,7 +619,7 @@
   const colors = ["#35a7ff", "#ff4d4d", "#ffd93d", "#b36bff"];
 
   const keys = {};
-  const mouse = { x: 0, y: 0, down: false };
+  const mouse = { x: 0, y: 0, down: false, clicked: false };
 
   addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
   addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
@@ -628,8 +629,14 @@
     mouse.y = e.clientY;
   });
 
-  canvas.addEventListener("mousedown", () => mouse.down = true);
-  canvas.addEventListener("mouseup", () => mouse.down = false);
+  canvas.addEventListener("mousedown", () => {
+    if (!mouse.down) mouse.clicked = true;
+    mouse.down = true;
+  });
+
+  canvas.addEventListener("mouseup", () => {
+    mouse.down = false;
+  });
 
   function safeRoomName(name) {
     return name.trim().replace(/[.#$/\[\]]/g, "_");
@@ -831,6 +838,10 @@
 
   function changeGameMode() {
     selectedGameMode = document.getElementById("gameModeSelect").value;
+
+    document.querySelectorAll(".round-btn").forEach(btn => {
+      btn.disabled = selectedGameMode === "normal";
+    });
   }
 
   function changeMap(dir) {
@@ -1171,13 +1182,20 @@
     const room = roomSnap.val();
     const maxPlayers = room.maxPlayers || 4;
 
-    if (maxPlayers === 1) {
-      alert("Essa sala foi criada para 1 jogador. Mude para 2, 3 ou 4 se quiser iniciar online com outras pessoas.");
+    const mode = room.gameMode || room.game?.mode || "normal";
+
+    if (mode !== "normal" && maxPlayers === 1) {
+      alert("Modo de batalha precisa de pelo menos 2 jogadores. Use modo Normal para jogar sozinho.");
       return;
     }
 
-    if (count < 2) {
-      alert("Não pode iniciar com apenas 1 jogador.");
+    if (mode !== "normal" && count < 2) {
+      alert("Modo de batalha não pode iniciar com apenas 1 jogador.");
+      return;
+    }
+
+    if (mode === "normal" && count < 1) {
+      alert("Precisa de pelo menos 1 jogador para iniciar.");
       return;
     }
 
@@ -1189,6 +1207,7 @@
     await update(roomRef(), {
       status: "playing",
       "game/status": "playing",
+      "game/mode": mode,
       "game/round": 1,
       "game/maxRounds": room.maxRounds || 3,
       "game/roundSeconds": 180,
@@ -1350,7 +1369,10 @@
       updateMe({ x: nx, y: ny, angle });
     }
 
-    if (mouse.down) shoot({ ...me, x: nx, y: ny, angle });
+    if (mouse.clicked) {
+      mouse.clicked = false;
+      shoot({ ...me, x: nx, y: ny, angle });
+    }
 
     const bulletNow = performance.now();
     if (isHost && bulletNow - lastBulletSync > 45) {
@@ -1425,7 +1447,7 @@
   }
 
   async function hostGameLoop() {
-    if (!roomGame || roomGame.status !== "playing") return;
+    if (!roomGame || roomGame.status !== "playing" || roomGame.mode !== "ctf") return;
 
     const now = Date.now();
     const updates = {};
@@ -1707,7 +1729,7 @@
   }
 
   function drawFlagsAndBases(camX, camY) {
-    if (!roomGame || !roomGame.flags) return;
+    if (!roomGame || roomGame.mode !== "ctf" || !roomGame.flags) return;
 
     for (const color of ["blue", "red"]) {
       const f = roomGame.flags[color];
@@ -1793,7 +1815,7 @@
   }
 
   function drawGameHud() {
-    if (!roomGame) return;
+    if (!roomGame || roomGame.mode !== "ctf") return;
     const left = Math.max(0, Math.ceil(((roomGame.roundEndAt || 0) - Date.now()) / 1000));
     const min = String(Math.floor(left / 60)).padStart(2, "0");
     const sec = String(left % 60).padStart(2, "0");
@@ -1816,7 +1838,7 @@
   }
 
   function drawVictoryScreen() {
-    if (!roomGame || roomGame.status !== "ended") return;
+    if (!roomGame || roomGame.mode !== "ctf" || roomGame.status !== "ended") return;
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.78)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
