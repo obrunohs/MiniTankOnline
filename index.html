@@ -1382,6 +1382,9 @@
   }
 
   async function shoot(me) {
+    const serverMe = players[playerId];
+    if (!gameStarted || !me || !serverMe || !serverMe.alive || (serverMe.hp || 0) <= 0) return;
+
     const now = performance.now();
 
     if (now < reloadingUntil) return;
@@ -1432,7 +1435,9 @@
     if (!gameStarted || !me) return;
 
     // Se morreu, não pode andar, mirar, atirar nem manter lanterna ligada.
-    if (!me.alive) {
+    if (!me.alive || (me.hp || 0) <= 0) {
+      mouse.clicked = false;
+      mouse.down = false;
       const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
       hudHp.textContent = (me.respawnsLeft || 0) > 0 ? `Respawn ${respawnLeft}s` : "Sem respawn";
 
@@ -2003,14 +2008,14 @@
     if (hp <= 100) {
       const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
       if (!blinkOn) {
-        ctx.restore();
-        return;
+        power = 0;
+      } else {
+        power = 0.72;
       }
-      power = 0.72;
     }
 
     // Com 40 HP ou menos a lanterna quase morre.
-    if (hp <= 40) {
+    if (hp <= 40 && power > 0) {
       power = 0.28;
     }
 
@@ -2067,7 +2072,7 @@
       }
     }
 
-    // Desenha a escuridão por cima do jogo, já com o cone recortado.
+    // Sempre desenha a escuridão. Quando a lanterna pisca, só o cone some.
     ctx.drawImage(nightCanvas, 0, 0);
   }
 
