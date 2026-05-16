@@ -1064,8 +1064,7 @@
       color: teamColor,
       alive: true,
       ready: true,
-      kills: 0,
-      flashlight: false
+      kills: 0
     });
 
     onDisconnect(playerRef()).remove();
@@ -1338,8 +1337,8 @@
     const me = getMe();
     if (!gameStarted || !me || !me.alive) return;
 
-    // Com 50 HP ou menos, a lanterna quebra e não liga mais.
-    if ((me.hp || 0) <= 50) {
+    // A lanterna só desliga totalmente quando o tanque morrer.
+    if ((me.hp || 0) <= 0) {
       if (localPlayer) localPlayer.flashlight = false;
       if (players[playerId]) players[playerId].flashlight = false;
       await update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
@@ -1468,8 +1467,8 @@
       localPlayer.hasFlag = players[playerId].hasFlag || "";
     }
 
-    // Se o tank estiver com 50 HP ou menos, a lanterna quebra/desliga automaticamente.
-    if ((me.hp || 0) <= 50 && me.flashlight) {
+    // A lanterna só desliga automaticamente quando o tanque morrer.
+    if ((me.hp || 0) <= 0 && me.flashlight) {
       update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
       if (localPlayer) localPlayer.flashlight = false;
       if (players[playerId]) players[playerId].flashlight = false;
@@ -1998,7 +1997,7 @@
     const me = getMe();
 
     // Cada jogador só clareia a própria tela.
-    if (me && me.alive && me.flashlight && (me.hp || 0) > 50) {
+    if (me && me.alive && me.flashlight && (me.hp || 0) > 0) {
       const hp = me.hp || 0;
       let power = 1;
 
@@ -2014,9 +2013,9 @@
       }
     }
 
-    // Com 40 HP ou menos a lanterna quase morre.
+    // Com 40 HP ou menos a lanterna continua piscando, mas fica só um pouco mais fraca.
     if (hp <= 40 && power > 0) {
-      power = 0.28;
+      power = 0.45;
     }
 
       if (power > 0) {
