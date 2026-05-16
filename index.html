@@ -1158,11 +1158,19 @@
       </div>
     `).join("");
 
-    startBtn.disabled = !isHost || list.length < 2;
+    const mode = room.gameMode || room.game?.mode || "normal";
+    const minPlayers = mode === "normal" ? 1 : 2;
+
+    startBtn.disabled = !isHost || list.length < minPlayers;
 
     if (!isHost) lobbyMsg.textContent = "Aguardando o host iniciar a partida.";
-    else if (list.length < 2) lobbyMsg.textContent = "Precisa de pelo menos 2 jogadores para iniciar.";
-    else lobbyMsg.textContent = "Pronto para iniciar.";
+    else if (list.length < minPlayers) {
+      lobbyMsg.textContent = mode === "normal"
+        ? "Modo Normal pode iniciar com 1 jogador."
+        : "Precisa de pelo menos 2 jogadores para iniciar.";
+    } else {
+      lobbyMsg.textContent = "Pronto para iniciar.";
+    }
   }
 
   function renderPlayersBox() {
