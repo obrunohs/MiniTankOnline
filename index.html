@@ -1393,6 +1393,10 @@
     const wm = worldMouse(me);
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
 
+    const pushed = pushTankOutOfMovingObstacles(nx, ny);
+    nx = pushed.x;
+    ny = pushed.y;
+
     localPlayer.x = nx;
     localPlayer.y = ny;
     localPlayer.angle = angle;
@@ -1657,6 +1661,48 @@
       if (d < radius) return true;
     }
     return false;
+  }
+
+  function pushTankOutOfMovingObstacles(x, y, radius = 28) {
+    let px = x;
+    let py = y;
+
+    for (const o of getObstacles()) {
+      if (o.type !== "moving") continue;
+      if (!rectCircleCollide(o, px, py, radius)) continue;
+
+      const closestX = Math.max(o.x, Math.min(px, o.x + o.w));
+      const closestY = Math.max(o.y, Math.min(py, o.y + o.h));
+      let dx = px - closestX;
+      let dy = py - closestY;
+      let dist = Math.hypot(dx, dy);
+
+      // Se o centro do tanque ficou muito dentro do bloco,
+      // escolhe o lado mais perto para expulsar.
+      if (dist < 0.001) {
+        const left = Math.abs(px - o.x);
+        const right = Math.abs((o.x + o.w) - px);
+        const top = Math.abs(py - o.y);
+        const bottom = Math.abs((o.y + o.h) - py);
+        const min = Math.min(left, right, top, bottom);
+
+        if (min === left) { dx = -1; dy = 0; dist = 1; }
+        else if (min === right) { dx = 1; dy = 0; dist = 1; }
+        else if (min === top) { dx = 0; dy = -1; dist = 1; }
+        else { dx = 0; dy = 1; dist = 1; }
+      }
+
+      const overlap = radius - dist + 2;
+      if (overlap > 0) {
+        px += (dx / dist) * overlap;
+        py += (dy / dist) * overlap;
+      }
+    }
+
+    px = Math.max(30, Math.min(MAP_W - 30, px));
+    py = Math.max(30, Math.min(MAP_H - 30, py));
+
+    return { x: px, y: py };
   }
 
   function getMoveSpeed(me) {
