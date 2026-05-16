@@ -568,6 +568,7 @@
   let isHost = false;
   let players = {};
   let bullets = {};
+  let explosions = {};
   let gameStarted = false;
   let lastPlayerSync = 0;
   let lastBulletSync = 0;
@@ -582,7 +583,7 @@
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
   let roomGame = null;
-  let lastSoundEventAt = 0;
+  let lastSoundEventId = "";
 
   const sounds = {
     shot: new Audio("tiro.mp3"),
@@ -590,6 +591,7 @@
     flagTake: new Audio("pegar_bandeira.mp3"),
     flagScore: new Audio("pontuar_bandeira.mp3"),
     flagReturn: new Audio("recuperar_bandeira.mp3"),
+    flagBack: new Audio("bandeira_devolta.mp3"),
     flashlight: new Audio("lanterna.mp3"),
     spawnCountdown: new Audio("spawn_countdown.mp3")
   };
@@ -607,13 +609,42 @@
     s.play().catch(() => {});
   }
 
+  function addSoundEvent(updates, type, by = "", x = 0, y = 0) {
+    updates[`rooms/${roomName}/game/soundEvent`] = {
+      id: crypto.randomUUID(),
+      type,
+      by,
+      x,
+      y,
+      at: Date.now()
+    };
+  }
+
+  function playSoundEvent(type, by = "", x = 0, y = 0) {
+    if (!roomName) return;
+
+    const eventId = crypto.randomUUID();
+
+    update(ref(db, `rooms/${roomName}/game/soundEvent`), {
+      id: eventId,
+      type,
+      by,
+      x,
+      y,
+      at: Date.now()
+    }).catch(console.error);
+  }
+
   function handleSoundEvent(game) {
     if (!game || !game.soundEvent) return;
     const ev = game.soundEvent;
-    if (!ev.at || ev.at <= lastSoundEventAt) return;
-    lastSoundEventAt = ev.at;
 
-    // Quem atirou já escuta o tiro localmente, então não duplica.
+    // Cada som online precisa ter um ID único.
+    // Assim o Firebase dispara o evento para PC, celular e todos na sala.
+    if (!ev.id || ev.id === lastSoundEventId) return;
+    lastSoundEventId = ev.id;
+
+    // O tiro de quem atirou já toca localmente para não dar atraso.
     if (ev.type === "shot" && ev.by === playerId) return;
 
     playSound(ev.type);
@@ -975,7 +1006,7 @@
           captureFlashX: 0,
           captureFlashY: 0,
           captureFlashColor: "",
-          soundEvent: { type: "", by: "", at: 0 },
+          soundEvent: { id: "", type: "", by: "", x: 0, y: 0, at: 0 },
           flags: {
             blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
             red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
@@ -1131,6 +1162,7 @@
         gameStarted = false;
         players = {};
         bullets = {};
+        explosions = {};
         roomName = "";
         isHost = false;
         localPlayer = null;
@@ -1153,6 +1185,7 @@
       const room = snap.val();
       players = room.players || {};
       bullets = room.bullets || {};
+      explosions = room.explosions || {};
 
       // Mantém o jogador local sincronizado com vida/morte/lanterna/respawn do Firebase.
       // Isso evita continuar andando/atirando depois de morrer.
@@ -1413,11 +1446,7 @@
 
     playSound("shot");
 
-    update(ref(db), {
-      [`rooms/${roomName}/game/soundEvent/type`]: "shot",
-      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
-      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
-    }).catch(console.error);
+    playSoundEvent("shot", playerId, me.x, me.y);
 
     set(bulletRef(id), {
       id,
@@ -1432,7 +1461,6 @@
   }
 
   function updateGame() {
-    smoothPlayers();
     const me = getMe();
     if (!gameStarted || !me) return;
 
@@ -1455,7 +1483,6 @@
       }
 
       if (isHost) hostGameLoop();
-      smoothPlayers();
       return;
     }
 
@@ -1533,7 +1560,7 @@
     }
 
     const now = performance.now();
-    if (now - lastPlayerSync > 120) {
+    if (now - lastPlayerSync > 65) {
       lastPlayerSync = now;
       updateMe({ x: nx, y: ny, angle });
     }
@@ -1544,9 +1571,7 @@
     }
 
     const bulletNow = performance.now();
-    smoothPlayers();
-
-    if (isHost && bulletNow - lastBulletSync > 70) {
+    if (isHost && bulletNow - lastBulletSync > 45) {
       lastBulletSync = bulletNow;
       hostUpdateBullets();
       hostGameLoop();
@@ -1590,15 +1615,28 @@
             updates[`rooms/${roomName}/players/${pid}/respawnsLeft`] = left;
             updates[`rooms/${roomName}/players/${pid}/flashlight`] = false;
             updates[`rooms/${roomName}/players/${pid}/respawnAt`] = left > 0 ? Date.now() + 3000 : 0;
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "explosion";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = Date.now();
+
+            // Explosão sincronizada: fica gravada no Firebase para todos os jogadores verem.
+            const explosionId = crypto.randomUUID();
+            updates[`rooms/${roomName}/explosions/${explosionId}`] = {
+              id: explosionId,
+              x: p.x,
+              y: p.y,
+              color: p.color || "#ff9933",
+              created: Date.now()
+            };
+
+            addSoundEvent(updates, "explosion", b.owner, p.x, p.y);
+
+            // Se o tanque morreu carregando uma bandeira, a bandeira NÃO volta direto para a base.
+            // Ela cai exatamente no lugar da explosão e pode ser pega por qualquer time.
+            // Se o time dono pegar a própria bandeira caída, precisa levar até o círculo/base para recuperar.
             if (p.hasFlag) {
               const flag = p.hasFlag;
-              const hx = flag === "blue" ? 170 : MAP_W - 170;
-              updates[`rooms/${roomName}/game/flags/${flag}/x`] = hx;
-              updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
+              updates[`rooms/${roomName}/game/flags/${flag}/x`] = p.x;
+              updates[`rooms/${roomName}/game/flags/${flag}/y`] = p.y;
               updates[`rooms/${roomName}/game/flags/${flag}/carriedBy`] = "";
-              updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
+              updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = false;
               updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             }
           }
@@ -1615,7 +1653,15 @@
       if (removeBullet) {
         updates[`rooms/${roomName}/bullets/${id}`] = null;
       } else {
-        // bala local otimizada
+        updates[`rooms/${roomName}/bullets/${id}/x`] = bx;
+        updates[`rooms/${roomName}/bullets/${id}/y`] = by;
+      }
+    }
+
+    // Limpa explosões antigas para não pesar o Firebase.
+    for (const [eid, ex] of Object.entries(explosions)) {
+      if (now - (ex.created || 0) > 1400) {
+        updates[`rooms/${roomName}/explosions/${eid}`] = null;
       }
     }
 
@@ -1662,43 +1708,58 @@
     if (roomGame.mode === "ctf" && roomGame.flags) {
       for (const [pid, p] of Object.entries(players)) {
         if (!p.alive) continue;
-        const enemyFlag = p.team === "blue" ? "red" : "blue";
-        const ownFlag = p.team;
-        const flagData = roomGame.flags[enemyFlag];
-        const ownBase = roomGame.flags[ownFlag];
+        const ownBase = roomGame.flags[p.team];
 
-        if (!p.hasFlag && flagData && !flagData.carriedBy) {
-          const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
+        // Pegar bandeira solta:
+        // - Se for bandeira inimiga: toca pegar_bandeira.mp3 e leva para pontuar.
+        // - Se for bandeira do próprio time caída no mapa: toca recuperar_bandeira.mp3 NA HORA que pegar.
+        //   Depois precisa levar até o círculo/base para devolver e tocar bandeira_devolta.mp3.
+        if (!p.hasFlag) {
+          for (const [flagKey, flagData] of Object.entries(roomGame.flags)) {
+            if (!flagData || flagData.carriedBy) continue;
 
-          // Recuperar a própria bandeira caso ela esteja fora da base.
-          if (flagData.team === p.team && !flagData.atHome && d < 48) {
-            resetOneFlagUpdates(updates, flagData.team);
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagReturn";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
-          }
+            // Não deixa o jogador pegar a própria bandeira enquanto ela já está parada na base.
+            if (flagKey === p.team && flagData.atHome) continue;
 
-          if (d < 48) {
-            updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
-            updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
-            updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagTake";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+            const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
+            if (d < 48) {
+              updates[`rooms/${roomName}/players/${pid}/hasFlag`] = flagKey;
+              updates[`rooms/${roomName}/game/flags/${flagKey}/carriedBy`] = pid;
+              updates[`rooms/${roomName}/game/flags/${flagKey}/atHome`] = false;
+
+              if (flagKey === p.team) {
+                // O time dono recuperou a própria bandeira caída: som toca no momento que pegar.
+                addSoundEvent(updates, "flagReturn", pid, p.x, p.y);
+              } else {
+                // O inimigo pegou a bandeira.
+                addSoundEvent(updates, "flagTake", pid, p.x, p.y);
+              }
+              break;
+            }
           }
         }
 
         if (p.hasFlag && ownBase) {
           const dBase = Math.hypot(p.x - ownBase.homeX, p.y - ownBase.homeY);
           if (dBase < 70) {
-            const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
-            updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             updates[`rooms/${roomName}/game/captureFlash`] = now;
             updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
             updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagScore";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
-            resetOneFlagUpdates(updates, p.hasFlag);
+
+            if (p.hasFlag === p.team) {
+              // O time dono levou a própria bandeira recuperada até o círculo/base.
+              // Aqui toca o novo som bandeira_devolta.mp3.
+              addSoundEvent(updates, "flagBack", pid, ownBase.homeX, ownBase.homeY);
+              resetOneFlagUpdates(updates, p.hasFlag);
+            } else {
+              // Pontuação: levou a bandeira inimiga até sua base.
+              const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
+              updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
+              addSoundEvent(updates, "flagScore", pid, ownBase.homeX, ownBase.homeY);
+              resetOneFlagUpdates(updates, p.hasFlag);
+            }
           }
         }
       }
@@ -1738,39 +1799,7 @@
     }
   }
 
-
-  // INTERPOLAÇÃO SUAVE DOS OUTROS TANQUES
-  function smoothPlayers() {
-    for (const [pid, p] of Object.entries(players)) {
-      if (pid === playerId) continue;
-
-      if (p.renderX === undefined) {
-        p.renderX = p.x;
-        p.renderY = p.y;
-      }
-
-      p.renderX += (p.x - p.renderX) * 0.18;
-      p.renderY += (p.y - p.renderY) * 0.18;
-    }
-  }
-
-  
-  // INTERPOLAÇÃO SUAVE
-  let renderPlayers = {};
-
-  function smoothPlayers() {
-    for (const [pid, p] of Object.entries(players)) {
-      if (!renderPlayers[pid]) {
-        renderPlayers[pid] = { ...p };
-      }
-
-      renderPlayers[pid].x += (p.x - renderPlayers[pid].x) * 0.18;
-      renderPlayers[pid].y += (p.y - renderPlayers[pid].y) * 0.18;
-      renderPlayers[pid].angle += (p.angle - renderPlayers[pid].angle) * 0.18;
-    }
-  }
-
-function drawGrid(camX, camY) {
+  function drawGrid(camX, camY) {
     ctx.strokeStyle = "rgba(255,255,255,0.07)";
     ctx.lineWidth = 1;
 
@@ -1976,8 +2005,8 @@ function drawGrid(camX, camY) {
   }
 
   function drawTank(p, camX, camY) {
-    const x = (p.renderX ?? p.x) - camX;
-    const y = (p.renderY ?? p.y) - camY;
+    const x = p.x - camX;
+    const y = p.y - camY;
 
     ctx.save();
     ctx.translate(x, y);
@@ -2018,6 +2047,68 @@ function drawGrid(camX, camY) {
     ctx.beginPath();
     ctx.arc(b.x - camX, b.y - camY, 5, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  function drawExplosion(ex, camX, camY) {
+    const elapsed = Date.now() - (ex.created || 0);
+    const duration = 1200;
+    if (elapsed < 0 || elapsed > duration) return;
+
+    const progress = elapsed / duration;
+    const x = ex.x - camX;
+    const y = ex.y - camY;
+    const alpha = 1 - progress;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // Onda de choque.
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "rgba(255,230,120,0.95)";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(x, y, 18 + progress * 85, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Bola de fogo central.
+    const glow = ctx.createRadialGradient(x, y, 2, x, y, 70 + progress * 45);
+    glow.addColorStop(0, `rgba(255,255,210,${0.95 * alpha})`);
+    glow.addColorStop(0.25, `rgba(255,150,20,${0.85 * alpha})`);
+    glow.addColorStop(0.62, `rgba(255,45,0,${0.55 * alpha})`);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, 72 + progress * 45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Partículas/estilhaços.
+    for (let i = 0; i < 24; i++) {
+      const a = i * (Math.PI * 2 / 24) + (ex.created || 0) * 0.001;
+      const dist = 18 + progress * (55 + (i % 5) * 18);
+      const px = x + Math.cos(a) * dist;
+      const py = y + Math.sin(a) * dist;
+      const size = 7 * alpha + (i % 3);
+      ctx.fillStyle = i % 2 === 0
+        ? `rgba(255,215,70,${alpha})`
+        : `rgba(255,90,20,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, Math.max(1.5, size), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fumaça escura no final.
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = Math.min(0.55, progress) * alpha;
+    for (let i = 0; i < 10; i++) {
+      const a = i * 0.75;
+      const dist = progress * (35 + i * 7);
+      ctx.fillStyle = "rgba(45,45,45,0.8)";
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * dist, y + Math.sin(a) * dist, 16 + progress * 22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   function drawNightDarkness(camX, camY) {
@@ -2314,6 +2405,7 @@ function drawGrid(camX, camY) {
     drawFlagsAndBases(camX, camY);
     for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
     for (const p of Object.values(players)) drawTank(p, camX, camY);
+    for (const ex of Object.values(explosions)) drawExplosion(ex, camX, camY);
 
     drawNightDarkness(camX, camY);
     drawGameHud();
