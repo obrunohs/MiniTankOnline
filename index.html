@@ -467,7 +467,7 @@
 
 <div id="hud" class="hide">
   Sala: <span id="hudRoom"></span><br>
-  Vida: <span id="hudHp">100</span><br>
+  Vida: <span id="hudHp">300/300</span><br>
   Munição: <span id="hudAmmo">2/2</span><br>
   Use WASD para mover, mouse para mirar, clique para atirar
 </div>
@@ -1044,7 +1044,7 @@
       x: pos.x,
       y: pos.y,
       angle: 0,
-      hp: 100,
+      hp: 300,
       team,
       hasFlag: "",
       respawnAt: 0,
@@ -1299,14 +1299,20 @@
     const me = getMe();
     if (!gameStarted || !me || !me.alive) return;
 
+    // Com 50 HP ou menos, a lanterna quebra e não liga mais.
+    if ((me.hp || 0) <= 50) {
+      if (localPlayer) localPlayer.flashlight = false;
+      if (players[playerId]) players[playerId].flashlight = false;
+      await update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
+      return;
+    }
+
     const next = !me.flashlight;
     playSound("flashlight");
 
-    await update(ref(db), {
-      [`rooms/${roomName}/players/${playerId}/flashlight`]: next,
-      [`rooms/${roomName}/game/soundEvent/type`]: "flashlight",
-      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
-      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
+    // A lanterna fica sincronizada no player, mas o efeito visual será desenhado só para o próprio jogador.
+    await update(ref(db, `rooms/${roomName}/players/${playerId}`), {
+      flashlight: next
     }).catch(console.error);
 
     if (localPlayer) localPlayer.flashlight = next;
@@ -1378,7 +1384,7 @@
       vx: Math.cos(angle) * 18,
       vy: Math.sin(angle) * 18,
       created: Date.now(),
-      damage: 25
+      damage: 20
     }).catch(console.error);
   }
 
@@ -1394,6 +1400,13 @@
     }
 
     if (!localPlayer) localPlayer = { ...me };
+
+    // Se o tank estiver com 50 HP ou menos, a lanterna quebra/desliga automaticamente.
+    if ((me.hp || 0) <= 50 && me.flashlight) {
+      update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
+      if (localPlayer) localPlayer.flashlight = false;
+      if (players[playerId]) players[playerId].flashlight = false;
+    }
 
     let nx = localPlayer.x;
     let ny = localPlayer.y;
@@ -1437,7 +1450,7 @@
       angle
     };
 
-    hudHp.textContent = me.hp;
+    hudHp.textContent = `${me.hp}/300`;
 
     if (hudAmmo) {
       const nowAmmo = performance.now();
@@ -1563,7 +1576,7 @@
       if (!p.alive && p.respawnAt && now >= p.respawnAt) {
         const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 } : { x: MAP_W - 230, y: MAP_H / 2 };
         updates[`rooms/${roomName}/players/${pid}/alive`] = true;
-        updates[`rooms/${roomName}/players/${pid}/hp`] = 100;
+        updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
         updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
         updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
         updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
@@ -1640,7 +1653,7 @@
       const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 - 80 + i * 60 } : { x: MAP_W - 230, y: MAP_H / 2 - 80 + i * 60 };
       updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
       updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
-      updates[`rooms/${roomName}/players/${pid}/hp`] = 100;
+      updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
       updates[`rooms/${roomName}/players/${pid}/alive`] = true;
       updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
       updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
@@ -1888,7 +1901,7 @@
     ctx.fillStyle = "red";
     ctx.fillRect(x - 24, y + 30, 48, 6);
     ctx.fillStyle = "lime";
-    ctx.fillRect(x - 24, y + 30, 48 * (p.hp / 100), 6);
+    ctx.fillRect(x - 24, y + 30, 48 * ((p.hp || 0) / 300), 6);
   }
 
   function drawBullet(b, camX, camY) {
@@ -1901,68 +1914,80 @@
   function drawNightDarkness(camX, camY) {
     if (currentMapType !== "noturna") return;
 
+    // Escurece a tela toda.
     ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.82)";
+    ctx.fillStyle = "rgba(0,0,0,0.90)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.globalCompositeOperation = "destination-out";
+    const me = getMe();
 
-    for (const p of Object.values(players)) {
-      if (!p.alive || !p.flashlight) continue;
-
-      const x = p.x - camX;
-      const y = p.y - camY;
-      const angle = p.angle || 0;
-
-      // luz curta em cone na frente do tanque
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-
-      const cone = ctx.createRadialGradient(45, 0, 5, 135, 0, 150);
-      cone.addColorStop(0, "rgba(255,255,255,0.95)");
-      cone.addColorStop(0.45, "rgba(255,255,255,0.45)");
-      cone.addColorStop(1, "rgba(255,255,255,0)");
-
-      ctx.fillStyle = cone;
-      ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(155, -65);
-      ctx.quadraticCurveTo(205, 0, 155, 65);
-      ctx.closePath();
-      ctx.fill();
-
-      // pequena luz no próprio tanque
-      ctx.beginPath();
-      ctx.arc(0, 0, 35, 0, Math.PI * 2);
-      ctx.fill();
-
+    // Cada jogador só enxerga a própria lanterna.
+    if (!me || !me.alive || !me.flashlight || (me.hp || 0) <= 50) {
       ctx.restore();
+      return;
     }
+
+    const hp = me.hp || 0;
+    let power = 1;
+
+    // Abaixo de 200 HP a lanterna fica mais fraca.
+    if (hp <= 200) power = 0.62;
+
+    // Abaixo de 150 HP a lanterna pisca a cada 1 segundo.
+    if (hp <= 150) {
+      const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
+      if (!blinkOn) {
+        ctx.restore();
+        return;
+      }
+      power = 0.38;
+    }
+
+    const x = me.x - camX;
+    const y = me.y - camY;
+    const angle = me.angle || 0;
+    const length = 210 * power;
+    const width = 78 * power;
+
+    // Abre um cone de visão apenas na tela do próprio jogador.
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    const cone = ctx.createRadialGradient(40, 0, 5, length * 0.65, 0, length);
+    cone.addColorStop(0, `rgba(255,255,255,${0.95 * power})`);
+    cone.addColorStop(0.45, `rgba(255,255,255,${0.45 * power})`);
+    cone.addColorStop(1, "rgba(255,255,255,0)");
+
+    ctx.fillStyle = cone;
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(length, -width);
+    ctx.quadraticCurveTo(length + 45 * power, 0, length, width);
+    ctx.closePath();
+    ctx.fill();
+
+    // Pequeno brilho em volta do próprio tank para orientação.
+    ctx.beginPath();
+    ctx.arc(0, 0, 32 * power, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
+    ctx.restore();
 
-    // desenha cor da lanterna por cima, para ficar visível como luz real
+    // Cor suave por cima, só no próprio cliente.
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    for (const p of Object.values(players)) {
-      if (!p.alive || !p.flashlight) continue;
-      const x = p.x - camX;
-      const y = p.y - camY;
-      const angle = p.angle || 0;
-
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.fillStyle = "rgba(255,245,170,0.18)";
-      ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(155, -65);
-      ctx.quadraticCurveTo(205, 0, 155, 65);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = `rgba(255,245,170,${0.16 * power})`;
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(length, -width);
+    ctx.quadraticCurveTo(length + 45 * power, 0, length, width);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 
