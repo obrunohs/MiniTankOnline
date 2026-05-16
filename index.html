@@ -575,6 +575,7 @@
   let lastShot = 0;
   let shotsInClip = 0;
   let reloadingUntil = 0;
+  let lastRespawnBeep = 0;
   let maxPlayersSelected = 4;
   let selectedRounds = 3;
   let selectedGameMode = "normal";
@@ -589,7 +590,8 @@
     flagTake: new Audio("pegar_bandeira.mp3"),
     flagScore: new Audio("pontuar_bandeira.mp3"),
     flagReturn: new Audio("recuperar_bandeira.mp3"),
-    flashlight: new Audio("lanterna.mp3")
+    flashlight: new Audio("lanterna.mp3"),
+    spawnCountdown: new Audio("spawn_countdown.mp3")
   };
 
   Object.values(sounds).forEach(s => {
@@ -1057,6 +1059,8 @@
       team,
       hasFlag: "",
       respawnAt: 0,
+      respawnsLeft: 3,
+      flashlight: true,
       color: teamColor,
       alive: true,
       ready: true,
@@ -1403,7 +1407,13 @@
 
     if (!me.alive) {
       const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
-      hudHp.textContent = `Respawn ${respawnLeft}s`;
+      hudHp.textContent = (me.respawnsLeft || 0) > 0 ? `Respawn ${respawnLeft}s` : "Sem respawn";
+
+      if (respawnLeft > 0 && respawnLeft !== lastRespawnBeep) {
+        lastRespawnBeep = respawnLeft;
+        playSound("spawnCountdown");
+      }
+
       if (isHost) hostGameLoop();
       return;
     }
@@ -1523,7 +1533,10 @@
           updates[`rooms/${roomName}/players/${pid}/alive`] = alive;
 
           if (!alive) {
-            updates[`rooms/${roomName}/players/${pid}/respawnAt`] = Date.now() + 5000;
+            const left = Math.max(0, (p.respawnsLeft ?? 3) - 1);
+            updates[`rooms/${roomName}/players/${pid}/respawnsLeft`] = left;
+            updates[`rooms/${roomName}/players/${pid}/flashlight`] = false;
+            updates[`rooms/${roomName}/players/${pid}/respawnAt`] = left > 0 ? Date.now() + 3000 : 0;
             updates[`rooms/${roomName}/game/soundEvent/type`] = "explosion";
             updates[`rooms/${roomName}/game/soundEvent/at`] = Date.now();
             if (p.hasFlag) {
@@ -1582,13 +1595,14 @@
     }
 
     for (const [pid, p] of Object.entries(players)) {
-      if (!p.alive && p.respawnAt && now >= p.respawnAt) {
+      if (!p.alive && p.respawnAt && now >= p.respawnAt && (p.respawnsLeft || 0) > 0) {
         const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 } : { x: MAP_W - 230, y: MAP_H / 2 };
         updates[`rooms/${roomName}/players/${pid}/alive`] = true;
         updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
         updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
         updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
         updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+        updates[`rooms/${roomName}/players/${pid}/flashlight`] = false;
         updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
       }
     }
@@ -1665,6 +1679,8 @@
       updates[`rooms/${roomName}/players/${pid}/hp`] = 300;
       updates[`rooms/${roomName}/players/${pid}/alive`] = true;
       updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+      updates[`rooms/${roomName}/players/${pid}/flashlight`] = true;
+      updates[`rooms/${roomName}/players/${pid}/respawnsLeft`] = 3;
       updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
       i++;
     }
@@ -1928,7 +1944,7 @@
 
     // Cria a camada escura por cima do mapa.
     nightCtx.clearRect(0, 0, nightCanvas.width, nightCanvas.height);
-    nightCtx.fillStyle = "rgba(0,0,0,0.92)";
+    nightCtx.fillStyle = "rgba(0,0,0,0.98)";
     nightCtx.fillRect(0, 0, nightCanvas.width, nightCanvas.height);
 
     const me = getMe();
@@ -1950,8 +1966,8 @@
         const x = me.x - camX;
         const y = me.y - camY;
         const angle = me.angle || 0;
-        const length = 230 * power;
-        const width = 86 * power;
+        const length = 340 * power;
+        const width = 115 * power;
 
         // Abre um buraco em formato de cone na camada escura.
         nightCtx.save();
@@ -1988,7 +2004,7 @@
         ctx.globalCompositeOperation = "lighter";
         ctx.translate(x, y);
         ctx.rotate(angle);
-        ctx.fillStyle = `rgba(255,238,150,${0.18 * power})`;
+        ctx.fillStyle = `rgba(255,238,150,${0.32 * power})`;
         ctx.beginPath();
         ctx.moveTo(10, 0);
         ctx.lineTo(length, -width);
@@ -2112,6 +2128,50 @@
     ctx.restore();
   }
 
+  function drawRespawnCountdown() {
+    const me = getMe();
+    if (!gameStarted || !me || me.alive) return;
+
+    const left = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
+    const respawns = me.respawnsLeft || 0;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.58)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+
+    if (respawns <= 0) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff5555";
+      ctx.font = "bold 38px Arial";
+      ctx.fillText("SEM RESPAWN", 0, -10);
+      ctx.fillStyle = "white";
+      ctx.font = "18px Arial";
+      ctx.fillText("Você usou seus 3 respawns.", 0, 28);
+      ctx.restore();
+      return;
+    }
+
+    const rot = Date.now() / 260;
+    ctx.rotate(rot);
+    ctx.strokeStyle = "#2eff2e";
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.arc(0, 0, 70, 0, Math.PI * 1.55);
+    ctx.stroke();
+
+    ctx.rotate(-rot);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "white";
+    ctx.font = "bold 58px Arial";
+    ctx.fillText(left, 0, 20);
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#ddd";
+    ctx.fillText(`Respawns restantes: ${respawns}`, 0, 100);
+    ctx.restore();
+  }
+
   function drawVictoryScreen() {
     if (!roomGame || roomGame.mode !== "ctf" || roomGame.status !== "ended") return;
     ctx.save();
@@ -2164,6 +2224,7 @@
 
     drawNightDarkness(camX, camY);
     drawGameHud();
+    drawRespawnCountdown();
     drawVictoryScreen();
     drawCrosshair();
 
