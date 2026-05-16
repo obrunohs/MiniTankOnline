@@ -538,12 +538,21 @@
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
 
+  // Camada separada para a escuridão do mapa noturno.
+  // Assim a lanterna revela o mapa sem apagar o canvas principal.
+  const nightCanvas = document.createElement("canvas");
+  const nightCtx = nightCanvas.getContext("2d");
+
   canvas.width = innerWidth;
   canvas.height = innerHeight;
+  nightCanvas.width = innerWidth;
+  nightCanvas.height = innerHeight;
 
   window.addEventListener("resize", () => {
     canvas.width = innerWidth;
     canvas.height = innerHeight;
+    nightCanvas.width = innerWidth;
+    nightCanvas.height = innerHeight;
   });
 
   // =========================
@@ -1914,81 +1923,84 @@
   function drawNightDarkness(camX, camY) {
     if (currentMapType !== "noturna") return;
 
-    // Escurece a tela toda.
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.90)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    nightCanvas.width = canvas.width;
+    nightCanvas.height = canvas.height;
+
+    // Cria a camada escura por cima do mapa.
+    nightCtx.clearRect(0, 0, nightCanvas.width, nightCanvas.height);
+    nightCtx.fillStyle = "rgba(0,0,0,0.92)";
+    nightCtx.fillRect(0, 0, nightCanvas.width, nightCanvas.height);
 
     const me = getMe();
 
-    // Cada jogador só enxerga a própria lanterna.
-    if (!me || !me.alive || !me.flashlight || (me.hp || 0) <= 50) {
-      ctx.restore();
-      return;
-    }
+    // Cada jogador só clareia a própria tela.
+    if (me && me.alive && me.flashlight && (me.hp || 0) > 50) {
+      const hp = me.hp || 0;
+      let power = 1;
 
-    const hp = me.hp || 0;
-    let power = 1;
+      if (hp <= 200) power = 0.62;
 
-    // Abaixo de 200 HP a lanterna fica mais fraca.
-    if (hp <= 200) power = 0.62;
-
-    // Abaixo de 150 HP a lanterna pisca a cada 1 segundo.
-    if (hp <= 150) {
-      const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
-      if (!blinkOn) {
-        ctx.restore();
-        return;
+      if (hp <= 150) {
+        const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
+        if (!blinkOn) power = 0;
+        else power = 0.38;
       }
-      power = 0.38;
+
+      if (power > 0) {
+        const x = me.x - camX;
+        const y = me.y - camY;
+        const angle = me.angle || 0;
+        const length = 230 * power;
+        const width = 86 * power;
+
+        // Abre um buraco em formato de cone na camada escura.
+        nightCtx.save();
+        nightCtx.globalCompositeOperation = "destination-out";
+        nightCtx.translate(x, y);
+        nightCtx.rotate(angle);
+
+        const cone = nightCtx.createRadialGradient(35, 0, 4, length * 0.60, 0, length);
+        cone.addColorStop(0, "rgba(255,255,255,1)");
+        cone.addColorStop(0.55, "rgba(255,255,255,0.75)");
+        cone.addColorStop(1, "rgba(255,255,255,0)");
+
+        nightCtx.fillStyle = cone;
+        nightCtx.beginPath();
+        nightCtx.moveTo(10, 0);
+        nightCtx.lineTo(length, -width);
+        nightCtx.quadraticCurveTo(length + 55 * power, 0, length, width);
+        nightCtx.closePath();
+        nightCtx.fill();
+
+        // Pequeno círculo de visão ao redor do próprio tanque.
+        const around = nightCtx.createRadialGradient(0, 0, 4, 0, 0, 42 * power);
+        around.addColorStop(0, "rgba(255,255,255,0.95)");
+        around.addColorStop(1, "rgba(255,255,255,0)");
+        nightCtx.fillStyle = around;
+        nightCtx.beginPath();
+        nightCtx.arc(0, 0, 42 * power, 0, Math.PI * 2);
+        nightCtx.fill();
+
+        nightCtx.restore();
+
+        // Cor amarelada suave da lanterna, só na própria tela.
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = `rgba(255,238,150,${0.18 * power})`;
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(length, -width);
+        ctx.quadraticCurveTo(length + 55 * power, 0, length, width);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
-    const x = me.x - camX;
-    const y = me.y - camY;
-    const angle = me.angle || 0;
-    const length = 210 * power;
-    const width = 78 * power;
-
-    // Abre um cone de visão apenas na tela do próprio jogador.
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-
-    const cone = ctx.createRadialGradient(40, 0, 5, length * 0.65, 0, length);
-    cone.addColorStop(0, `rgba(255,255,255,${0.95 * power})`);
-    cone.addColorStop(0.45, `rgba(255,255,255,${0.45 * power})`);
-    cone.addColorStop(1, "rgba(255,255,255,0)");
-
-    ctx.fillStyle = cone;
-    ctx.beginPath();
-    ctx.moveTo(12, 0);
-    ctx.lineTo(length, -width);
-    ctx.quadraticCurveTo(length + 45 * power, 0, length, width);
-    ctx.closePath();
-    ctx.fill();
-
-    // Pequeno brilho em volta do próprio tank para orientação.
-    ctx.beginPath();
-    ctx.arc(0, 0, 32 * power, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-    ctx.restore();
-
-    // Cor suave por cima, só no próprio cliente.
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.fillStyle = `rgba(255,245,170,${0.16 * power})`;
-    ctx.beginPath();
-    ctx.moveTo(12, 0);
-    ctx.lineTo(length, -width);
-    ctx.quadraticCurveTo(length + 45 * power, 0, length, width);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    // Desenha a escuridão por cima do jogo, já com o cone recortado.
+    ctx.drawImage(nightCanvas, 0, 0);
   }
 
   function drawFlagsAndBases(camX, camY) {
