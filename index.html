@@ -595,6 +595,10 @@
     const ev = game.soundEvent;
     if (!ev.at || ev.at <= lastSoundEventAt) return;
     lastSoundEventAt = ev.at;
+
+    // Quem atirou já escuta o tiro localmente, então não duplica.
+    if (ev.type === "shot" && ev.by === playerId) return;
+
     playSound(ev.type);
   }
   let publicRoomsStarted = false;
@@ -938,7 +942,7 @@
           captureFlashX: 0,
           captureFlashY: 0,
           captureFlashColor: "",
-          soundEvent: { type: "", at: 0 },
+          soundEvent: { type: "", by: "", at: 0 },
           flags: {
             blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
             red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
@@ -1197,6 +1201,7 @@
       "game/captureFlashY": 0,
       "game/captureFlashColor": "",
       "game/soundEvent/type": "",
+      "game/soundEvent/by": "",
       "game/soundEvent/at": 0,
       "game/flags/blue/x": 170,
       "game/flags/blue/y": MAP_H / 2,
@@ -1279,6 +1284,12 @@
     const id = crypto.randomUUID();
 
     playSound("shot");
+
+    update(ref(db), {
+      [`rooms/${roomName}/game/soundEvent/type`]: "shot",
+      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
+      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
+    }).catch(console.error);
 
     set(bulletRef(id), {
       id,
