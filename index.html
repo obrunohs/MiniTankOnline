@@ -870,10 +870,7 @@
       return false;
     }
 
-    if (!roomPassword) {
-      showMenuError("Digite a senha da sala.");
-      return false;
-    }
+    // Senha opcional: se deixar vazio, a sala fica sem senha.
 
     if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "SUA_API_KEY") {
       showMenuError("Você ainda precisa colocar as configurações reais do Firebase no código.");
@@ -984,7 +981,7 @@
       }
 
       const room = snap.val();
-      if (room.password !== roomPassword) {
+      if ((room.password || "") !== roomPassword) {
         showMenuError("Senha incorreta.");
         return;
       }
@@ -1181,26 +1178,37 @@
     const roomSnap = await get(roomRef());
     const room = roomSnap.val();
     const maxPlayers = room.maxPlayers || 4;
-
     const mode = room.gameMode || room.game?.mode || "normal";
 
-    if (mode !== "normal" && maxPlayers === 1) {
+    if (!isHost) {
+      alert("Apenas o dono da sala pode iniciar.");
+      return;
+    }
+
+    // Modo normal pode iniciar sozinho.
+    if (mode === "normal") {
+      if (count < 1) {
+        alert("Precisa de pelo menos 1 jogador para iniciar.");
+        return;
+      }
+
+      await update(roomRef(), {
+        status: "playing",
+        "game/status": "playing",
+        "game/mode": "normal",
+        "game/winner": ""
+      });
+      return;
+    }
+
+    // Modos de batalha precisam de 2 ou mais.
+    if (maxPlayers === 1) {
       alert("Modo de batalha precisa de pelo menos 2 jogadores. Use modo Normal para jogar sozinho.");
       return;
     }
 
-    if (mode !== "normal" && count < 2) {
+    if (count < 2) {
       alert("Modo de batalha não pode iniciar com apenas 1 jogador.");
-      return;
-    }
-
-    if (mode === "normal" && count < 1) {
-      alert("Precisa de pelo menos 1 jogador para iniciar.");
-      return;
-    }
-
-    if (!isHost) {
-      alert("Apenas o dono da sala pode iniciar.");
       return;
     }
 
@@ -1216,12 +1224,6 @@
       "game/redScore": 0,
       "game/winner": "",
       "game/captureFlash": 0,
-      "game/captureFlashX": 0,
-      "game/captureFlashY": 0,
-      "game/captureFlashColor": "",
-      "game/soundEvent/type": "",
-      "game/soundEvent/by": "",
-      "game/soundEvent/at": 0,
       "game/flags/blue/x": 170,
       "game/flags/blue/y": MAP_H / 2,
       "game/flags/blue/homeX": 170,
