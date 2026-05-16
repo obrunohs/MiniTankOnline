@@ -583,7 +583,7 @@
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
   let roomGame = null;
-  let lastSoundEventAt = 0;
+  let lastSoundEventId = "";
 
   const sounds = {
     shot: new Audio("tiro.mp3"),
@@ -608,13 +608,42 @@
     s.play().catch(() => {});
   }
 
+  function addSoundEvent(updates, type, by = "", x = 0, y = 0) {
+    updates[`rooms/${roomName}/game/soundEvent`] = {
+      id: crypto.randomUUID(),
+      type,
+      by,
+      x,
+      y,
+      at: Date.now()
+    };
+  }
+
+  function playSoundEvent(type, by = "", x = 0, y = 0) {
+    if (!roomName) return;
+
+    const eventId = crypto.randomUUID();
+
+    update(ref(db, `rooms/${roomName}/game/soundEvent`), {
+      id: eventId,
+      type,
+      by,
+      x,
+      y,
+      at: Date.now()
+    }).catch(console.error);
+  }
+
   function handleSoundEvent(game) {
     if (!game || !game.soundEvent) return;
     const ev = game.soundEvent;
-    if (!ev.at || ev.at <= lastSoundEventAt) return;
-    lastSoundEventAt = ev.at;
 
-    // Quem atirou já escuta o tiro localmente, então não duplica.
+    // Cada som online precisa ter um ID único.
+    // Assim o Firebase dispara o evento para PC, celular e todos na sala.
+    if (!ev.id || ev.id === lastSoundEventId) return;
+    lastSoundEventId = ev.id;
+
+    // O tiro de quem atirou já toca localmente para não dar atraso.
     if (ev.type === "shot" && ev.by === playerId) return;
 
     playSound(ev.type);
@@ -976,7 +1005,7 @@
           captureFlashX: 0,
           captureFlashY: 0,
           captureFlashColor: "",
-          soundEvent: { type: "", by: "", at: 0 },
+          soundEvent: { id: "", type: "", by: "", x: 0, y: 0, at: 0 },
           flags: {
             blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
             red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
@@ -1416,11 +1445,7 @@
 
     playSound("shot");
 
-    update(ref(db), {
-      [`rooms/${roomName}/game/soundEvent/type`]: "shot",
-      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
-      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
-    }).catch(console.error);
+    playSoundEvent("shot", playerId, me.x, me.y);
 
     set(bulletRef(id), {
       id,
@@ -1600,8 +1625,7 @@
               created: Date.now()
             };
 
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "explosion";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = Date.now();
+            addSoundEvent(updates, "explosion", b.owner, p.x, p.y);
             if (p.hasFlag) {
               const flag = p.hasFlag;
               const hx = flag === "blue" ? 170 : MAP_W - 170;
@@ -1691,16 +1715,14 @@
           // Recuperar a própria bandeira caso ela esteja fora da base.
           if (flagData.team === p.team && !flagData.atHome && d < 48) {
             resetOneFlagUpdates(updates, flagData.team);
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagReturn";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+            addSoundEvent(updates, "flagReturn", pid, p.x, p.y);
           }
 
           if (d < 48) {
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagTake";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+            addSoundEvent(updates, "flagTake", pid, p.x, p.y);
           }
         }
 
@@ -1714,8 +1736,7 @@
             updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
             updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
-            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagScore";
-            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+            addSoundEvent(updates, "flagScore", pid, ownBase.homeX, ownBase.homeY);
             resetOneFlagUpdates(updates, p.hasFlag);
           }
         }
