@@ -335,7 +335,7 @@
 </head>
 <body>
 
-<div id="authScreen" class="screen">
+<div id="authScreen" class="screen hide">
   <div class="auth-layout">
     <div class="auth-card" id="loginBox">
       <h1>Mini Tank Online</h1>
@@ -453,6 +453,8 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getAuth,
+    setPersistence,
+    browserSessionPersistence,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     sendEmailVerification,
@@ -489,6 +491,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
+  setPersistence(auth, browserSessionPersistence).catch(console.error);
 
   // =========================
   // ELEMENTOS
@@ -642,6 +645,7 @@
         return;
       }
 
+      await setPersistence(auth, browserSessionPersistence);
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(cred.user, { displayName: nick });
       await set(ref(db, `usersByNick/${key}`), { email, nick, uid: cred.user.uid });
@@ -671,6 +675,7 @@
       }
 
       const data = snap.val();
+      await setPersistence(auth, browserSessionPersistence);
       const cred = await signInWithEmailAndPassword(auth, data.email, pass);
 
       if (!cred.user.emailVerified) {
@@ -731,15 +736,6 @@
       console.error(e);
     }
   }
-
-  let manualReload = false;
-
-  window.addEventListener("keydown", e => {
-    if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
-      manualReload = true;
-      sessionStorage.setItem("miniTankReload", "1");
-    }
-  });
 
   function showMenuError(msg) {
     let old = document.getElementById("menuError");
@@ -988,7 +984,25 @@
   function listenRoom() {
     onValue(roomRef(), snap => {
       if (!snap.exists()) {
-        location.reload();
+        gameStarted = false;
+        players = {};
+        bullets = {};
+        roomName = "";
+        isHost = false;
+        localPlayer = null;
+
+        lobby.classList.add("hide");
+        hud.classList.add("hide");
+        playersBox.classList.add("hide");
+
+        if (auth.currentUser && auth.currentUser.emailVerified) {
+          menu.classList.remove("hide");
+          authScreen.classList.add("hide");
+          showMenuError("O criador da sala saiu. A sala foi encerrada.");
+        } else {
+          menu.classList.add("hide");
+          authScreen.classList.remove("hide");
+        }
         return;
       }
 
@@ -1084,19 +1098,13 @@
   }
 
   window.addEventListener("beforeunload", () => {
-    const isReload = manualReload || sessionStorage.getItem("miniTankReload") === "1";
-
-    if (!isReload && auth.currentUser) {
-      signOut(auth).catch(console.error);
-    }
-
+    // Não desloga ao atualizar a página. A sessão é do tipo browserSessionPersistence:
+    // atualiza normal, mas ao fechar a aba/navegador a sessão não fica permanente.
     if (roomName && isHost) {
       remove(roomRef()).catch(console.error);
     } else if (roomName) {
       remove(playerRef()).catch(console.error);
     }
-
-    setTimeout(() => sessionStorage.removeItem("miniTankReload"), 1000);
   });
 
   function getMe() {
