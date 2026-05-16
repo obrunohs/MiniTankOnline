@@ -1368,15 +1368,27 @@
 
     let nx = localPlayer.x;
     let ny = localPlayer.y;
-    const speed = me.hasFlag ? 3 : 4;
+    const speed = getMoveSpeed(me);
 
-    if (keys["w"]) ny -= speed;
-    if (keys["s"]) ny += speed;
-    if (keys["a"]) nx -= speed;
-    if (keys["d"]) nx += speed;
+    let tryX = nx;
+    let tryY = ny;
 
-    nx = Math.max(30, Math.min(MAP_W - 30, nx));
-    ny = Math.max(30, Math.min(MAP_H - 30, ny));
+    if (keys["w"]) tryY -= speed;
+    if (keys["s"]) tryY += speed;
+    if (keys["a"]) tryX -= speed;
+    if (keys["d"]) tryX += speed;
+
+    tryX = Math.max(30, Math.min(MAP_W - 30, tryX));
+    tryY = Math.max(30, Math.min(MAP_H - 30, tryY));
+
+    // Colisão separada por eixo para o tanque deslizar na parede.
+    if (!collidesWithObstacle(tryX, ny) && !collidesWithTank(tryX, ny)) {
+      nx = tryX;
+    }
+
+    if (!collidesWithObstacle(nx, tryY) && !collidesWithTank(nx, tryY)) {
+      ny = tryY;
+    }
 
     const wm = worldMouse(me);
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
@@ -1433,6 +1445,11 @@
       let removeBullet = false;
 
       if (bx < 0 || by < 0 || bx > MAP_W || by > MAP_H || now - b.created > 2500) {
+        removeBullet = true;
+      }
+
+      // Tiro não atravessa obstáculos.
+      if (!removeBullet && collidesWithObstacle(bx, by, 6)) {
         removeBullet = true;
       }
 
@@ -1615,6 +1632,43 @@
       ctx.lineTo(MAP_W - camX, y - camY);
       ctx.stroke();
     }
+  }
+
+  function rectCircleCollide(rect, cx, cy, radius) {
+    const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+    const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+    const dx = cx - closestX;
+    const dy = cy - closestY;
+    return (dx * dx + dy * dy) < radius * radius;
+  }
+
+  function collidesWithObstacle(x, y, radius = 28) {
+    for (const o of getObstacles()) {
+      if (o.type === "mud") continue;
+      if (rectCircleCollide(o, x, y, radius)) return true;
+    }
+    return false;
+  }
+
+  function collidesWithTank(x, y, radius = 34) {
+    for (const [pid, p] of Object.entries(players)) {
+      if (pid === playerId || !p.alive) continue;
+      const d = Math.hypot(x - p.x, y - p.y);
+      if (d < radius) return true;
+    }
+    return false;
+  }
+
+  function getMoveSpeed(me) {
+    let base = me.hasFlag ? 3 : 4;
+
+    for (const o of getObstacles()) {
+      if (o.type === "mud" && rectCircleCollide(o, me.x, me.y, 28)) {
+        base *= 0.55;
+      }
+    }
+
+    return base;
   }
 
   function getObstacles() {
