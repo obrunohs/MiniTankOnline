@@ -579,7 +579,8 @@
     explosion: new Audio("explosao.mp3"),
     flagTake: new Audio("pegar_bandeira.mp3"),
     flagScore: new Audio("pontuar_bandeira.mp3"),
-    flagReturn: new Audio("recuperar_bandeira.mp3")
+    flagReturn: new Audio("recuperar_bandeira.mp3"),
+    flashlight: new Audio("lanterna.mp3")
   };
 
   Object.values(sounds).forEach(s => {
@@ -625,7 +626,16 @@
   const keys = {};
   const mouse = { x: 0, y: 0, down: false, clicked: false };
 
-  addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+
+    if (k === "f" && !keys["f"]) {
+      toggleFlashlight();
+    }
+
+    keys[k] = true;
+  });
+
   addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
   canvas.addEventListener("mousemove", e => {
@@ -1041,7 +1051,8 @@
       color: teamColor,
       alive: true,
       ready: true,
-      kills: 0
+      kills: 0,
+      flashlight: false
     });
 
     onDisconnect(playerRef()).remove();
@@ -1282,6 +1293,24 @@
 
   function getMe() {
     return localPlayer || players[playerId];
+  }
+
+  async function toggleFlashlight() {
+    const me = getMe();
+    if (!gameStarted || !me || !me.alive) return;
+
+    const next = !me.flashlight;
+    playSound("flashlight");
+
+    await update(ref(db), {
+      [`rooms/${roomName}/players/${playerId}/flashlight`]: next,
+      [`rooms/${roomName}/game/soundEvent/type`]: "flashlight",
+      [`rooms/${roomName}/game/soundEvent/by`]: playerId,
+      [`rooms/${roomName}/game/soundEvent/at`]: Date.now()
+    }).catch(console.error);
+
+    if (localPlayer) localPlayer.flashlight = next;
+    if (players[playerId]) players[playerId].flashlight = next;
   }
 
   async function updateMe(data) {
@@ -1773,14 +1802,14 @@
   }
 
   function drawMap(camX, camY) {
-    const bg = currentMapType === "noturna" ? "#07101f" : currentMapType === "agua" ? "#2d3425" : "#293626";
+    const bg = currentMapType === "noturna" ? "#010409" : currentMapType === "agua" ? "#2d3425" : "#293626";
     ctx.fillStyle = bg;
     ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
 
     drawGrid(camX, camY);
 
     if (currentMapType === "noturna") {
-      ctx.fillStyle = "rgba(0,255,255,0.07)";
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(-camX, -camY, MAP_W, MAP_H);
     }
 
@@ -1867,6 +1896,74 @@
     ctx.beginPath();
     ctx.arc(b.x - camX, b.y - camY, 5, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  function drawNightDarkness(camX, camY) {
+    if (currentMapType !== "noturna") return;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.82)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.globalCompositeOperation = "destination-out";
+
+    for (const p of Object.values(players)) {
+      if (!p.alive || !p.flashlight) continue;
+
+      const x = p.x - camX;
+      const y = p.y - camY;
+      const angle = p.angle || 0;
+
+      // luz curta em cone na frente do tanque
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      const cone = ctx.createRadialGradient(45, 0, 5, 135, 0, 150);
+      cone.addColorStop(0, "rgba(255,255,255,0.95)");
+      cone.addColorStop(0.45, "rgba(255,255,255,0.45)");
+      cone.addColorStop(1, "rgba(255,255,255,0)");
+
+      ctx.fillStyle = cone;
+      ctx.beginPath();
+      ctx.moveTo(12, 0);
+      ctx.lineTo(155, -65);
+      ctx.quadraticCurveTo(205, 0, 155, 65);
+      ctx.closePath();
+      ctx.fill();
+
+      // pequena luz no próprio tanque
+      ctx.beginPath();
+      ctx.arc(0, 0, 35, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    // desenha cor da lanterna por cima, para ficar visível como luz real
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const p of Object.values(players)) {
+      if (!p.alive || !p.flashlight) continue;
+      const x = p.x - camX;
+      const y = p.y - camY;
+      const angle = p.angle || 0;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.fillStyle = "rgba(255,245,170,0.18)";
+      ctx.beginPath();
+      ctx.moveTo(12, 0);
+      ctx.lineTo(155, -65);
+      ctx.quadraticCurveTo(205, 0, 155, 65);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   function drawFlagsAndBases(camX, camY) {
@@ -2028,6 +2125,7 @@
     for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
     for (const p of Object.values(players)) drawTank(p, camX, camY);
 
+    drawNightDarkness(camX, camY);
     drawGameHud();
     drawVictoryScreen();
     drawCrosshair();
