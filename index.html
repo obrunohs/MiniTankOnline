@@ -591,6 +591,7 @@
     flagTake: new Audio("pegar_bandeira.mp3"),
     flagScore: new Audio("pontuar_bandeira.mp3"),
     flagReturn: new Audio("recuperar_bandeira.mp3"),
+    flagBack: new Audio("bandeira_devolta.mp3"),
     flashlight: new Audio("lanterna.mp3"),
     spawnCountdown: new Audio("spawn_countdown.mp3")
   };
@@ -1709,18 +1710,30 @@
         if (!p.alive) continue;
         const ownBase = roomGame.flags[p.team];
 
-        // Pegar bandeira: agora qualquer bandeira solta pode ser carregada.
-        // - Se for bandeira inimiga: leva até sua base para pontuar.
-        // - Se for bandeira do próprio time caída no mapa: leva até seu círculo/base para recuperar.
+        // Pegar bandeira solta:
+        // - Se for bandeira inimiga: toca pegar_bandeira.mp3 e leva para pontuar.
+        // - Se for bandeira do próprio time caída no mapa: toca recuperar_bandeira.mp3 NA HORA que pegar.
+        //   Depois precisa levar até o círculo/base para devolver e tocar bandeira_devolta.mp3.
         if (!p.hasFlag) {
           for (const [flagKey, flagData] of Object.entries(roomGame.flags)) {
             if (!flagData || flagData.carriedBy) continue;
+
+            // Não deixa o jogador pegar a própria bandeira enquanto ela já está parada na base.
+            if (flagKey === p.team && flagData.atHome) continue;
+
             const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
             if (d < 48) {
               updates[`rooms/${roomName}/players/${pid}/hasFlag`] = flagKey;
               updates[`rooms/${roomName}/game/flags/${flagKey}/carriedBy`] = pid;
               updates[`rooms/${roomName}/game/flags/${flagKey}/atHome`] = false;
-              addSoundEvent(updates, "flagTake", pid, p.x, p.y);
+
+              if (flagKey === p.team) {
+                // O time dono recuperou a própria bandeira caída: som toca no momento que pegar.
+                addSoundEvent(updates, "flagReturn", pid, p.x, p.y);
+              } else {
+                // O inimigo pegou a bandeira.
+                addSoundEvent(updates, "flagTake", pid, p.x, p.y);
+              }
               break;
             }
           }
@@ -1736,8 +1749,9 @@
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
 
             if (p.hasFlag === p.team) {
-              // Recuperação: o time dono pegou a própria bandeira caída e levou até o círculo.
-              addSoundEvent(updates, "flagReturn", pid, ownBase.homeX, ownBase.homeY);
+              // O time dono levou a própria bandeira recuperada até o círculo/base.
+              // Aqui toca o novo som bandeira_devolta.mp3.
+              addSoundEvent(updates, "flagBack", pid, ownBase.homeX, ownBase.homeY);
               resetOneFlagUpdates(updates, p.hasFlag);
             } else {
               // Pontuação: levou a bandeira inimiga até sua base.
