@@ -567,6 +567,36 @@
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
   let roomGame = null;
+  let lastSoundEventAt = 0;
+
+  const sounds = {
+    shot: new Audio("tiro.mp3"),
+    explosion: new Audio("explosao.mp3"),
+    flagTake: new Audio("pegar_bandeira.mp3"),
+    flagScore: new Audio("pontuar_bandeira.mp3"),
+    flagReturn: new Audio("recuperar_bandeira.mp3")
+  };
+
+  Object.values(sounds).forEach(s => {
+    s.volume = 0.55;
+    s.preload = "auto";
+  });
+
+  function playSound(name) {
+    const base = sounds[name];
+    if (!base) return;
+    const s = base.cloneNode();
+    s.volume = base.volume;
+    s.play().catch(() => {});
+  }
+
+  function handleSoundEvent(game) {
+    if (!game || !game.soundEvent) return;
+    const ev = game.soundEvent;
+    if (!ev.at || ev.at <= lastSoundEventAt) return;
+    lastSoundEventAt = ev.at;
+    playSound(ev.type);
+  }
   let publicRoomsStarted = false;
 
   const mapOptions = [
@@ -908,6 +938,7 @@
           captureFlashX: 0,
           captureFlashY: 0,
           captureFlashColor: "",
+          soundEvent: { type: "", at: 0 },
           flags: {
             blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
             red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
@@ -1087,6 +1118,7 @@
       isHost = room.host === playerId;
       currentMapType = room.mapType || "destruicao";
       roomGame = room.game || null;
+      handleSoundEvent(roomGame);
 
       renderLobby(room);
       renderPlayersBox();
@@ -1164,6 +1196,8 @@
       "game/captureFlashX": 0,
       "game/captureFlashY": 0,
       "game/captureFlashColor": "",
+      "game/soundEvent/type": "",
+      "game/soundEvent/at": 0,
       "game/flags/blue/x": 170,
       "game/flags/blue/y": MAP_H / 2,
       "game/flags/blue/homeX": 170,
@@ -1243,6 +1277,8 @@
     const wm = worldMouse(me);
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
     const id = crypto.randomUUID();
+
+    playSound("shot");
 
     set(bulletRef(id), {
       id,
@@ -1342,6 +1378,8 @@
 
           if (!alive) {
             updates[`rooms/${roomName}/players/${pid}/respawnAt`] = Date.now() + 5000;
+            updates[`rooms/${roomName}/game/soundEvent/type`] = "explosion";
+            updates[`rooms/${roomName}/game/soundEvent/at`] = Date.now();
             if (p.hasFlag) {
               const flag = p.hasFlag;
               const hx = flag === "blue" ? 170 : MAP_W - 170;
@@ -1419,10 +1457,20 @@
 
         if (!p.hasFlag && flagData && !flagData.carriedBy) {
           const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
+
+          // Recuperar a própria bandeira caso ela esteja fora da base.
+          if (flagData.team === p.team && !flagData.atHome && d < 48) {
+            resetOneFlagUpdates(updates, flagData.team);
+            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagReturn";
+            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
+          }
+
           if (d < 48) {
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
             updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
+            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagTake";
+            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
           }
         }
 
@@ -1436,6 +1484,8 @@
             updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
             updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
+            updates[`rooms/${roomName}/game/soundEvent/type`] = "flagScore";
+            updates[`rooms/${roomName}/game/soundEvent/at`] = now;
             resetOneFlagUpdates(updates, p.hasFlag);
           }
         }
