@@ -128,7 +128,7 @@
     margin: 5px 0 10px;
   }
 
-  .count-btn {
+  .count-btn, .round-btn {
     padding: 10px 0;
     margin: 0;
     background: #222;
@@ -136,10 +136,21 @@
     border: 1px solid #555;
   }
 
-  .count-btn.active {
+  .count-btn.active, .round-btn.active {
     background: #2eff2e;
     color: #071107;
     border-color: #9cff9c;
+  }
+
+  select {
+    width: 100%;
+    padding: 12px;
+    margin: 7px 0;
+    border-radius: 8px;
+    background: #222;
+    color: white;
+    border: 1px solid #555;
+    font-size: 15px;
   }
 
   .map-selector {
@@ -384,6 +395,19 @@
         <input id="roomInput" placeholder="Nome da sala" maxlength="20" />
         <input id="passwordInput" placeholder="Senha da sala" maxlength="20" type="password" />
 
+        <p class="small" style="margin-bottom:4px">Modo de batalha</p>
+        <select id="gameModeSelect" onchange="changeGameMode()">
+          <option value="ctf">Capturar Bandeira</option>
+        </select>
+
+        <p class="small" style="margin-bottom:4px">Rodadas</p>
+        <div class="player-count-box">
+          <button type="button" class="round-btn active" onclick="selectRounds(3)">3</button>
+          <button type="button" class="round-btn" onclick="selectRounds(5)">5</button>
+          <button type="button" class="round-btn" onclick="selectRounds(7)">7</button>
+          <button type="button" class="round-btn" onclick="selectRounds(9)">9</button>
+        </div>
+
         <p class="small" style="margin-bottom:4px">Quantidade de jogadores na sala</p>
         <div class="player-count-box">
           <button type="button" class="count-btn" onclick="selectMaxPlayers(1)">1</button>
@@ -538,8 +562,11 @@
   let localPlayer = null;
   let lastShot = 0;
   let maxPlayersSelected = 4;
+  let selectedRounds = 3;
+  let selectedGameMode = "ctf";
   let selectedMapIndex = 0;
   let currentMapType = "destruicao";
+  let roomGame = null;
   let publicRoomsStarted = false;
 
   const mapOptions = [
@@ -761,6 +788,17 @@
     });
   }
 
+  function selectRounds(n) {
+    selectedRounds = n;
+    document.querySelectorAll(".round-btn").forEach(btn => {
+      btn.classList.toggle("active", Number(btn.textContent) === n);
+    });
+  }
+
+  function changeGameMode() {
+    selectedGameMode = document.getElementById("gameModeSelect").value;
+  }
+
   function changeMap(dir) {
     selectedMapIndex += dir;
     if (selectedMapIndex < 0) selectedMapIndex = mapOptions.length - 1;
@@ -849,10 +887,29 @@
         host: playerId,
         status: "lobby",
         maxPlayers: maxPlayersSelected,
+        gameMode: selectedGameMode,
+        maxRounds: selectedRounds,
+        roundSeconds: 180,
         mapType: currentMapType,
         mapName: mapOptions[selectedMapIndex].name,
         mapCss: mapOptions[selectedMapIndex].css,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        game: {
+          mode: selectedGameMode,
+          status: "waiting",
+          round: 1,
+          maxRounds: selectedRounds,
+          roundSeconds: 180,
+          roundEndAt: 0,
+          blueScore: 0,
+          redScore: 0,
+          winner: "",
+          captureFlash: 0,
+          flags: {
+            blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
+            red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
+          }
+        }
       });
 
       await addPlayerToRoom();
@@ -907,8 +964,19 @@
 
   async function addPlayerToRoom() {
     const snap = await get(ref(db, `rooms/${roomName}/players`));
-    const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+    const playersNow = snap.exists() ? snap.val() : {};
+    const count = Object.keys(playersNow).length;
     const pos = spawnPosition(count);
+
+    let blueCount = 0;
+    let redCount = 0;
+    Object.values(playersNow).forEach(p => {
+      if (p.team === "blue") blueCount++;
+      if (p.team === "red") redCount++;
+    });
+
+    const team = blueCount <= redCount ? "blue" : "red";
+    const teamColor = team === "blue" ? "#35a7ff" : "#ff4d4d";
 
     await set(playerRef(), {
       id: playerId,
@@ -917,7 +985,10 @@
       y: pos.y,
       angle: 0,
       hp: 100,
-      color: colors[count % colors.length],
+      team,
+      hasFlag: "",
+      respawnAt: 0,
+      color: teamColor,
       alive: true,
       ready: true,
       kills: 0
@@ -1012,6 +1083,7 @@
       gameStarted = room.status === "playing";
       isHost = room.host === playerId;
       currentMapType = room.mapType || "destruicao";
+      roomGame = room.game || null;
 
       renderLobby(room);
       renderPlayersBox();
@@ -1075,7 +1147,30 @@
       return;
     }
 
-    await update(roomRef(), { status: "playing" });
+    await update(roomRef(), {
+      status: "playing",
+      "game/status": "playing",
+      "game/round": 1,
+      "game/maxRounds": room.maxRounds || 3,
+      "game/roundSeconds": 180,
+      "game/roundEndAt": Date.now() + 180000,
+      "game/blueScore": 0,
+      "game/redScore": 0,
+      "game/winner": "",
+      "game/captureFlash": 0,
+      "game/flags/blue/x": 170,
+      "game/flags/blue/y": MAP_H / 2,
+      "game/flags/blue/homeX": 170,
+      "game/flags/blue/homeY": MAP_H / 2,
+      "game/flags/blue/carriedBy": "",
+      "game/flags/blue/atHome": true,
+      "game/flags/red/x": MAP_W - 170,
+      "game/flags/red/y": MAP_H / 2,
+      "game/flags/red/homeX": MAP_W - 170,
+      "game/flags/red/homeY": MAP_H / 2,
+      "game/flags/red/carriedBy": "",
+      "game/flags/red/atHome": true
+    });
   }
 
   async function leaveRoom() {
@@ -1157,13 +1252,20 @@
 
   function updateGame() {
     const me = getMe();
-    if (!gameStarted || !me || !me.alive) return;
+    if (!gameStarted || !me) return;
+
+    if (!me.alive) {
+      const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
+      hudHp.textContent = `Respawn ${respawnLeft}s`;
+      if (isHost) hostGameLoop();
+      return;
+    }
 
     if (!localPlayer) localPlayer = { ...me };
 
     let nx = localPlayer.x;
     let ny = localPlayer.y;
-    const speed = 4;
+    const speed = me.hasFlag ? 3 : 4;
 
     if (keys["w"]) ny -= speed;
     if (keys["s"]) ny += speed;
@@ -1201,6 +1303,7 @@
     if (isHost && bulletNow - lastBulletSync > 45) {
       lastBulletSync = bulletNow;
       hostUpdateBullets();
+      hostGameLoop();
     }
   }
 
@@ -1231,6 +1334,19 @@
           updates[`rooms/${roomName}/players/${pid}/hp`] = newHp;
           updates[`rooms/${roomName}/players/${pid}/alive`] = alive;
 
+          if (!alive) {
+            updates[`rooms/${roomName}/players/${pid}/respawnAt`] = Date.now() + 5000;
+            if (p.hasFlag) {
+              const flag = p.hasFlag;
+              const hx = flag === "blue" ? 170 : MAP_W - 170;
+              updates[`rooms/${roomName}/game/flags/${flag}/x`] = hx;
+              updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
+              updates[`rooms/${roomName}/game/flags/${flag}/carriedBy`] = "";
+              updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
+              updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+            }
+          }
+
           if (!alive && players[b.owner]) {
             updates[`rooms/${roomName}/players/${b.owner}/kills`] = (players[b.owner].kills || 0) + 1;
           }
@@ -1250,6 +1366,102 @@
 
     if (Object.keys(updates).length > 0) {
       await update(ref(db), updates);
+    }
+  }
+
+  async function hostGameLoop() {
+    if (!roomGame || roomGame.status !== "playing") return;
+
+    const now = Date.now();
+    const updates = {};
+
+    if (roomGame.roundEndAt && now >= roomGame.roundEndAt) {
+      const nextRound = (roomGame.round || 1) + 1;
+      const maxRounds = roomGame.maxRounds || 3;
+      if (nextRound > maxRounds) {
+        const blue = roomGame.blueScore || 0;
+        const red = roomGame.redScore || 0;
+        updates[`rooms/${roomName}/game/status`] = "ended";
+        updates[`rooms/${roomName}/game/winner`] = blue > red ? "AZUL" : red > blue ? "VERMELHO" : "EMPATE";
+      } else {
+        updates[`rooms/${roomName}/game/round`] = nextRound;
+        updates[`rooms/${roomName}/game/roundEndAt`] = now + 180000;
+        resetFlagsUpdates(updates);
+        resetPlayersForRound(updates);
+      }
+    }
+
+    for (const [pid, p] of Object.entries(players)) {
+      if (!p.alive && p.respawnAt && now >= p.respawnAt) {
+        const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 } : { x: MAP_W - 230, y: MAP_H / 2 };
+        updates[`rooms/${roomName}/players/${pid}/alive`] = true;
+        updates[`rooms/${roomName}/players/${pid}/hp`] = 100;
+        updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
+        updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
+        updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+        updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
+      }
+    }
+
+    if (roomGame.flags) {
+      for (const [pid, p] of Object.entries(players)) {
+        if (!p.alive) continue;
+        const enemyFlag = p.team === "blue" ? "red" : "blue";
+        const ownFlag = p.team;
+        const flagData = roomGame.flags[enemyFlag];
+        const ownBase = roomGame.flags[ownFlag];
+
+        if (!p.hasFlag && flagData && !flagData.carriedBy) {
+          const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
+          if (d < 48) {
+            updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
+            updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
+            updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
+          }
+        }
+
+        if (p.hasFlag && ownBase) {
+          const dBase = Math.hypot(p.x - ownBase.homeX, p.y - ownBase.homeY);
+          if (dBase < 70) {
+            const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
+            updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
+            updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+            updates[`rooms/${roomName}/game/captureFlash`] = now;
+            resetOneFlagUpdates(updates, p.hasFlag);
+          }
+        }
+      }
+    }
+
+    if (Object.keys(updates).length > 0) await update(ref(db), updates);
+  }
+
+  function resetOneFlagUpdates(updates, flag) {
+    const x = flag === "blue" ? 170 : MAP_W - 170;
+    updates[`rooms/${roomName}/game/flags/${flag}/x`] = x;
+    updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
+    updates[`rooms/${roomName}/game/flags/${flag}/homeX`] = x;
+    updates[`rooms/${roomName}/game/flags/${flag}/homeY`] = MAP_H / 2;
+    updates[`rooms/${roomName}/game/flags/${flag}/carriedBy`] = "";
+    updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
+  }
+
+  function resetFlagsUpdates(updates) {
+    resetOneFlagUpdates(updates, "blue");
+    resetOneFlagUpdates(updates, "red");
+  }
+
+  function resetPlayersForRound(updates) {
+    let i = 0;
+    for (const [pid, p] of Object.entries(players)) {
+      const spawn = p.team === "blue" ? { x: 230, y: MAP_H / 2 - 80 + i * 60 } : { x: MAP_W - 230, y: MAP_H / 2 - 80 + i * 60 };
+      updates[`rooms/${roomName}/players/${pid}/x`] = spawn.x;
+      updates[`rooms/${roomName}/players/${pid}/y`] = spawn.y;
+      updates[`rooms/${roomName}/players/${pid}/hp`] = 100;
+      updates[`rooms/${roomName}/players/${pid}/alive`] = true;
+      updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
+      updates[`rooms/${roomName}/players/${pid}/respawnAt`] = 0;
+      i++;
     }
   }
 
@@ -1402,7 +1614,14 @@
     ctx.fillStyle = "white";
     ctx.font = "13px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(p.nickname, x, y - 35);
+    if (p.hasFlag) {
+      ctx.fillStyle = p.hasFlag === "blue" ? "#35a7ff" : "#ff4d4d";
+      ctx.fillRect(x - 7, y - 62, 14, 28);
+      ctx.fillStyle = "white";
+      ctx.fillRect(x - 2, y - 62, 4, 38);
+    }
+
+    ctx.fillText(`${p.nickname} ${p.team === "blue" ? "🔵" : p.team === "red" ? "🔴" : ""}`, x, y - 35);
 
     ctx.fillStyle = "red";
     ctx.fillRect(x - 24, y + 30, 48, 6);
@@ -1415,6 +1634,82 @@
     ctx.beginPath();
     ctx.arc(b.x - camX, b.y - camY, 5, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  function drawFlagsAndBases(camX, camY) {
+    if (!roomGame || !roomGame.flags) return;
+
+    for (const color of ["blue", "red"]) {
+      const f = roomGame.flags[color];
+      const baseColor = color === "blue" ? "#35a7ff" : "#ff4d4d";
+      const bx = f.homeX - camX;
+      const by = f.homeY - camY;
+
+      ctx.save();
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 5;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath();
+      ctx.arc(bx, by, 70, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      if (!f.carriedBy) {
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(f.x - camX - 8, f.y - camY - 35, 16, 35);
+        ctx.fillStyle = "white";
+        ctx.fillRect(f.x - camX - 2, f.y - camY - 35, 4, 45);
+      }
+      ctx.restore();
+    }
+
+    if (roomGame.captureFlash && Date.now() - roomGame.captureFlash < 650) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+  }
+
+  function drawGameHud() {
+    if (!roomGame) return;
+    const left = Math.max(0, Math.ceil(((roomGame.roundEndAt || 0) - Date.now()) / 1000));
+    const min = String(Math.floor(left / 60)).padStart(2, "0");
+    const sec = String(left % 60).padStart(2, "0");
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(canvas.width / 2 - 220, 12, 440, 66);
+    ctx.textAlign = "center";
+    ctx.font = "bold 20px Arial";
+    ctx.fillStyle = "#35a7ff";
+    ctx.fillText(`AZUL ${roomGame.blueScore || 0}`, canvas.width / 2 - 125, 38);
+    ctx.fillStyle = "white";
+    ctx.fillText(`${min}:${sec}`, canvas.width / 2, 38);
+    ctx.fillStyle = "#ff4d4d";
+    ctx.fillText(`VERM ${roomGame.redScore || 0}`, canvas.width / 2 + 125, 38);
+    ctx.font = "14px Arial";
+    ctx.fillStyle = "#ddd";
+    ctx.fillText(`Rodada ${roomGame.round || 1}/${roomGame.maxRounds || 3} • Bandeira vale 10`, canvas.width / 2, 62);
+    ctx.restore();
+  }
+
+  function drawVictoryScreen() {
+    if (!roomGame || roomGame.status !== "ended") return;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.78)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = "center";
+    ctx.font = "bold 42px Arial";
+    ctx.fillStyle = "white";
+    ctx.fillText("FIM DE JOGO", canvas.width / 2, canvas.height / 2 - 70);
+    ctx.font = "bold 34px Arial";
+    ctx.fillStyle = roomGame.winner === "AZUL" ? "#35a7ff" : roomGame.winner === "VERMELHO" ? "#ff4d4d" : "#fff";
+    ctx.fillText(`VENCEDOR: ${roomGame.winner || "EMPATE"}`, canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = "22px Arial";
+    ctx.fillStyle = "#ddd";
+    ctx.fillText(`Azul ${roomGame.blueScore || 0} x ${roomGame.redScore || 0} Vermelho`, canvas.width / 2, canvas.height / 2 + 25);
+    ctx.restore();
   }
 
   function drawCrosshair() {
@@ -1445,9 +1740,12 @@
 
     drawMap(camX, camY);
 
+    drawFlagsAndBases(camX, camY);
     for (const b of Object.values(bullets)) drawBullet(b, camX, camY);
     for (const p of Object.values(players)) drawTank(p, camX, camY);
 
+    drawGameHud();
+    drawVictoryScreen();
     drawCrosshair();
 
     requestAnimationFrame(render);
@@ -1470,6 +1768,8 @@
   window.recoverPassword = recoverPassword;
   window.selectPublicRoom = selectPublicRoom;
   window.changeMap = changeMap;
+  window.changeGameMode = changeGameMode;
+  window.selectRounds = selectRounds;
   window.selectMaxPlayers = selectMaxPlayers;
   window.createRoom = createRoom;
   window.joinRoom = joinRoom;
