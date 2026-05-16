@@ -1154,6 +1154,32 @@
       const room = snap.val();
       players = room.players || {};
       bullets = room.bullets || {};
+
+      // Mantém o jogador local sincronizado com vida/morte/lanterna/respawn do Firebase.
+      // Isso evita continuar andando/atirando depois de morrer.
+      if (players[playerId]) {
+        const serverMe = players[playerId];
+
+        if (!localPlayer) {
+          localPlayer = { ...serverMe };
+        } else {
+          localPlayer.hp = serverMe.hp;
+          localPlayer.alive = serverMe.alive;
+          localPlayer.respawnAt = serverMe.respawnAt || 0;
+          localPlayer.respawnsLeft = serverMe.respawnsLeft ?? 3;
+          localPlayer.hasFlag = serverMe.hasFlag || "";
+          localPlayer.flashlight = serverMe.flashlight || false;
+          localPlayer.team = serverMe.team;
+          localPlayer.color = serverMe.color;
+
+          // Quando morrer ou respawnar, usa a posição oficial do servidor.
+          if (!serverMe.alive || serverMe.respawnAt === 0) {
+            localPlayer.x = serverMe.x;
+            localPlayer.y = serverMe.y;
+            localPlayer.angle = serverMe.angle || localPlayer.angle || 0;
+          }
+        }
+      }
       gameStarted = room.status === "playing";
       isHost = room.host === playerId;
       currentMapType = room.mapType || "destruicao";
@@ -1405,9 +1431,16 @@
     const me = getMe();
     if (!gameStarted || !me) return;
 
+    // Se morreu, não pode andar, mirar, atirar nem manter lanterna ligada.
     if (!me.alive) {
       const respawnLeft = Math.max(0, Math.ceil(((me.respawnAt || 0) - Date.now()) / 1000));
       hudHp.textContent = (me.respawnsLeft || 0) > 0 ? `Respawn ${respawnLeft}s` : "Sem respawn";
+
+      if (me.flashlight) {
+        update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
+        if (localPlayer) localPlayer.flashlight = false;
+        if (players[playerId]) players[playerId].flashlight = false;
+      }
 
       if (respawnLeft > 0 && respawnLeft !== lastRespawnBeep) {
         lastRespawnBeep = respawnLeft;
@@ -1419,6 +1452,16 @@
     }
 
     if (!localPlayer) localPlayer = { ...me };
+
+    // Garante que dados críticos venham do servidor, não do estado local antigo.
+    if (players[playerId]) {
+      localPlayer.hp = players[playerId].hp;
+      localPlayer.alive = players[playerId].alive;
+      localPlayer.respawnAt = players[playerId].respawnAt || 0;
+      localPlayer.respawnsLeft = players[playerId].respawnsLeft ?? 3;
+      localPlayer.flashlight = players[playerId].flashlight || false;
+      localPlayer.hasFlag = players[playerId].hasFlag || "";
+    }
 
     // Se o tank estiver com 50 HP ou menos, a lanterna quebra/desliga automaticamente.
     if ((me.hp || 0) <= 50 && me.flashlight) {
@@ -1573,12 +1616,12 @@
   }
 
   async function hostGameLoop() {
-    if (!roomGame || roomGame.status !== "playing" || roomGame.mode !== "ctf") return;
+    if (!roomGame || roomGame.status !== "playing") return;
 
     const now = Date.now();
     const updates = {};
 
-    if (roomGame.roundEndAt && now >= roomGame.roundEndAt) {
+    if (roomGame.mode === "ctf" && roomGame.roundEndAt && now >= roomGame.roundEndAt) {
       const nextRound = (roomGame.round || 1) + 1;
       const maxRounds = roomGame.maxRounds || 3;
       if (nextRound > maxRounds) {
@@ -1607,7 +1650,7 @@
       }
     }
 
-    if (roomGame.flags) {
+    if (roomGame.mode === "ctf" && roomGame.flags) {
       for (const [pid, p] of Object.entries(players)) {
         if (!p.alive) continue;
         const enemyFlag = p.team === "blue" ? "red" : "blue";
