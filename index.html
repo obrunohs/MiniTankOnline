@@ -905,6 +905,9 @@
           redScore: 0,
           winner: "",
           captureFlash: 0,
+          captureFlashX: 0,
+          captureFlashY: 0,
+          captureFlashColor: "",
           flags: {
             blue: { team: "blue", x: 170, y: MAP_H / 2, homeX: 170, homeY: MAP_H / 2, carriedBy: "", atHome: true },
             red: { team: "red", x: MAP_W - 170, y: MAP_H / 2, homeX: MAP_W - 170, homeY: MAP_H / 2, carriedBy: "", atHome: true }
@@ -1158,6 +1161,9 @@
       "game/redScore": 0,
       "game/winner": "",
       "game/captureFlash": 0,
+      "game/captureFlashX": 0,
+      "game/captureFlashY": 0,
+      "game/captureFlashColor": "",
       "game/flags/blue/x": 170,
       "game/flags/blue/y": MAP_H / 2,
       "game/flags/blue/homeX": 170,
@@ -1427,6 +1433,9 @@
             updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             updates[`rooms/${roomName}/game/captureFlash`] = now;
+            updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
+            updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
+            updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
             resetOneFlagUpdates(updates, p.hasFlag);
           }
         }
@@ -1663,12 +1672,63 @@
       ctx.restore();
     }
 
-    if (roomGame.captureFlash && Date.now() - roomGame.captureFlash < 650) {
-      ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
+    drawCaptureSwirl(camX, camY);
+  }
+
+  function drawCaptureSwirl(camX, camY) {
+    if (!roomGame || !roomGame.captureFlash) return;
+
+    const elapsed = Date.now() - roomGame.captureFlash;
+    if (elapsed > 1100) return;
+
+    const progress = elapsed / 1100;
+    const x = (roomGame.captureFlashX || 0) - camX;
+    const y = (roomGame.captureFlashY || 0) - camY;
+    const color = roomGame.captureFlashColor === "blue" ? "53,167,255" : "255,77,77";
+
+    ctx.save();
+    ctx.globalAlpha = 1 - progress;
+
+    // brilho no chão
+    const radius = 50 + progress * 45;
+    const glow = ctx.createRadialGradient(x, y, 5, x, y, radius);
+    glow.addColorStop(0, `rgba(${color},0.65)`);
+    glow.addColorStop(0.55, `rgba(${color},0.22)`);
+    glow.addColorStop(1, `rgba(${color},0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // redemoinho subindo
+    ctx.strokeStyle = `rgba(${color},0.95)`;
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 2.2; a += 0.18) {
+        const t = a + progress * Math.PI * 5 + i * 2.1;
+        const r = 18 + a * 8;
+        const px = x + Math.cos(t) * r;
+        const py = y - progress * 90 + Math.sin(t) * r * 0.35 + i * 16;
+        if (a === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
     }
+
+    // partículas subindo
+    for (let i = 0; i < 18; i++) {
+      const angle = i * 0.9 + progress * 5;
+      const rr = 20 + (i % 6) * 8;
+      const px = x + Math.cos(angle) * rr;
+      const py = y + 30 - progress * 125 - (i % 4) * 8;
+      ctx.fillStyle = `rgba(${color},${0.9 - progress})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   function drawGameHud() {
