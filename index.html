@@ -468,6 +468,7 @@
 <div id="hud" class="hide">
   Sala: <span id="hudRoom"></span><br>
   Vida: <span id="hudHp">100</span><br>
+  Munição: <span id="hudAmmo">2/2</span><br>
   Use WASD para mover, mouse para mirar, clique para atirar
 </div>
 
@@ -532,6 +533,7 @@
   const playersBox = document.getElementById("playersBox");
   const hudRoom = document.getElementById("hudRoom");
   const hudHp = document.getElementById("hudHp");
+  const hudAmmo = document.getElementById("hudAmmo");
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
@@ -562,6 +564,8 @@
   let lastBulletSync = 0;
   let localPlayer = null;
   let lastShot = 0;
+  let shotsInClip = 0;
+  let reloadingUntil = 0;
   let maxPlayersSelected = 4;
   let selectedRounds = 3;
   let selectedGameMode = "normal";
@@ -1305,8 +1309,25 @@
 
   async function shoot(me) {
     const now = performance.now();
-    if (now - lastShot < 500) return;
+
+    if (now < reloadingUntil) return;
+
+    if (shotsInClip >= 2) {
+      reloadingUntil = now + 2000;
+      return;
+    }
+
+    if (now - lastShot < 180) return;
     lastShot = now;
+    shotsInClip++;
+
+    if (shotsInClip >= 2) {
+      reloadingUntil = now + 2000;
+      setTimeout(() => {
+        shotsInClip = 0;
+        reloadingUntil = 0;
+      }, 2000);
+    }
 
     const wm = worldMouse(me);
     const angle = Math.atan2(wm.y - me.y, wm.x - me.x);
@@ -1372,6 +1393,16 @@
     };
 
     hudHp.textContent = me.hp;
+
+    if (hudAmmo) {
+      const nowAmmo = performance.now();
+      if (nowAmmo < reloadingUntil) {
+        const left = Math.ceil((reloadingUntil - nowAmmo) / 1000);
+        hudAmmo.textContent = `Recarregando ${left}s`;
+      } else {
+        hudAmmo.textContent = `${2 - shotsInClip}/2`;
+      }
+    }
 
     const now = performance.now();
     if (now - lastPlayerSync > 65) {
