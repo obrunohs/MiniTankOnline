@@ -1626,13 +1626,16 @@
             };
 
             addSoundEvent(updates, "explosion", b.owner, p.x, p.y);
+
+            // Se o tanque morreu carregando uma bandeira, a bandeira NÃO volta direto para a base.
+            // Ela cai exatamente no lugar da explosão e pode ser pega por qualquer time.
+            // Se o time dono pegar a própria bandeira caída, precisa levar até o círculo/base para recuperar.
             if (p.hasFlag) {
               const flag = p.hasFlag;
-              const hx = flag === "blue" ? 170 : MAP_W - 170;
-              updates[`rooms/${roomName}/game/flags/${flag}/x`] = hx;
-              updates[`rooms/${roomName}/game/flags/${flag}/y`] = MAP_H / 2;
+              updates[`rooms/${roomName}/game/flags/${flag}/x`] = p.x;
+              updates[`rooms/${roomName}/game/flags/${flag}/y`] = p.y;
               updates[`rooms/${roomName}/game/flags/${flag}/carriedBy`] = "";
-              updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = true;
+              updates[`rooms/${roomName}/game/flags/${flag}/atHome`] = false;
               updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             }
           }
@@ -1704,40 +1707,45 @@
     if (roomGame.mode === "ctf" && roomGame.flags) {
       for (const [pid, p] of Object.entries(players)) {
         if (!p.alive) continue;
-        const enemyFlag = p.team === "blue" ? "red" : "blue";
-        const ownFlag = p.team;
-        const flagData = roomGame.flags[enemyFlag];
-        const ownBase = roomGame.flags[ownFlag];
+        const ownBase = roomGame.flags[p.team];
 
-        if (!p.hasFlag && flagData && !flagData.carriedBy) {
-          const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
-
-          // Recuperar a própria bandeira caso ela esteja fora da base.
-          if (flagData.team === p.team && !flagData.atHome && d < 48) {
-            resetOneFlagUpdates(updates, flagData.team);
-            addSoundEvent(updates, "flagReturn", pid, p.x, p.y);
-          }
-
-          if (d < 48) {
-            updates[`rooms/${roomName}/players/${pid}/hasFlag`] = enemyFlag;
-            updates[`rooms/${roomName}/game/flags/${enemyFlag}/carriedBy`] = pid;
-            updates[`rooms/${roomName}/game/flags/${enemyFlag}/atHome`] = false;
-            addSoundEvent(updates, "flagTake", pid, p.x, p.y);
+        // Pegar bandeira: agora qualquer bandeira solta pode ser carregada.
+        // - Se for bandeira inimiga: leva até sua base para pontuar.
+        // - Se for bandeira do próprio time caída no mapa: leva até seu círculo/base para recuperar.
+        if (!p.hasFlag) {
+          for (const [flagKey, flagData] of Object.entries(roomGame.flags)) {
+            if (!flagData || flagData.carriedBy) continue;
+            const d = Math.hypot(p.x - flagData.x, p.y - flagData.y);
+            if (d < 48) {
+              updates[`rooms/${roomName}/players/${pid}/hasFlag`] = flagKey;
+              updates[`rooms/${roomName}/game/flags/${flagKey}/carriedBy`] = pid;
+              updates[`rooms/${roomName}/game/flags/${flagKey}/atHome`] = false;
+              addSoundEvent(updates, "flagTake", pid, p.x, p.y);
+              break;
+            }
           }
         }
 
         if (p.hasFlag && ownBase) {
           const dBase = Math.hypot(p.x - ownBase.homeX, p.y - ownBase.homeY);
           if (dBase < 70) {
-            const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
-            updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
             updates[`rooms/${roomName}/players/${pid}/hasFlag`] = "";
             updates[`rooms/${roomName}/game/captureFlash`] = now;
             updates[`rooms/${roomName}/game/captureFlashX`] = ownBase.homeX;
             updates[`rooms/${roomName}/game/captureFlashY`] = ownBase.homeY;
             updates[`rooms/${roomName}/game/captureFlashColor`] = p.team;
-            addSoundEvent(updates, "flagScore", pid, ownBase.homeX, ownBase.homeY);
-            resetOneFlagUpdates(updates, p.hasFlag);
+
+            if (p.hasFlag === p.team) {
+              // Recuperação: o time dono pegou a própria bandeira caída e levou até o círculo.
+              addSoundEvent(updates, "flagReturn", pid, ownBase.homeX, ownBase.homeY);
+              resetOneFlagUpdates(updates, p.hasFlag);
+            } else {
+              // Pontuação: levou a bandeira inimiga até sua base.
+              const scoreKey = p.team === "blue" ? "blueScore" : "redScore";
+              updates[`rooms/${roomName}/game/${scoreKey}`] = (roomGame[scoreKey] || 0) + 10;
+              addSoundEvent(updates, "flagScore", pid, ownBase.homeX, ownBase.homeY);
+              resetOneFlagUpdates(updates, p.hasFlag);
+            }
           }
         }
       }
