@@ -1997,13 +1997,22 @@
       const hp = me.hp || 0;
       let power = 1;
 
-      if (hp <= 200) power = 0.62;
+      if (hp <= 150) power = 0.82;
 
-      if (hp <= 150) {
-        const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
-        if (!blinkOn) power = 0;
-        else power = 0.38;
+    // Com 100 HP ou menos começa a piscar.
+    if (hp <= 100) {
+      const blinkOn = Math.floor(Date.now() / 1000) % 2 === 0;
+      if (!blinkOn) {
+        ctx.restore();
+        return;
       }
+      power = 0.72;
+    }
+
+    // Com 40 HP ou menos a lanterna quase morre.
+    if (hp <= 40) {
+      power = 0.28;
+    }
 
       if (power > 0) {
         const x = me.x - camX;
