@@ -1334,13 +1334,14 @@
   }
 
   async function toggleFlashlight() {
-    // Lanterna só funciona no mapa Noturno.
-    if (currentMapType !== "noturna") return;
-
     const me = getMe();
+
+    // Lanterna só existe no mapa Noturno.
+    if (currentMapType !== "noturna") return;
     if (!gameStarted || !me || !me.alive) return;
 
-    // A lanterna só desliga totalmente qua0) {
+    // Se o tanque morreu, força desligar.
+    if ((me.hp || 0) <= 0) {
       if (localPlayer) localPlayer.flashlight = false;
       if (players[playerId]) players[playerId].flashlight = false;
       await update(ref(db, `rooms/${roomName}/players/${playerId}`), { flashlight: false }).catch(console.error);
@@ -1350,7 +1351,6 @@
     const next = !me.flashlight;
     playSound("flashlight");
 
-    // A lanterna fica sincronizada no player, mas o efeito visual será desenhado só para o próprio jogador.
     await update(ref(db, `rooms/${roomName}/players/${playerId}`), {
       flashlight: next
     }).catch(console.error);
